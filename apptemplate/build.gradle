@@ -1,0 +1,66 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 26
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 25
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    android {
+        dexOptions {
+            preDexLibraries = false
+        }
+    }
+    /* Always remove NurApi.jar when doing clean build. Will downloaded in preBuild step */
+    clean << {
+        def f = new File('nurapi/NurApi.jar')
+        if (f.exists()) {
+            println 'Deleted NurApi.jar'
+            f.delete();
+        }
+        def f2 = new File('nurapiandroid/NurApiAndroid.aar')
+        if (f2.exists()) {
+            println 'Deleted NurApiAndroid.aar'
+            f2.delete();
+        }
+    }
+    /* Download NurApi.jar if missing */
+    preBuild << {
+        def f = new File('nurapi/NurApi.jar')
+        if (!f.exists()) {
+            println 'Downloading latest NurApi.jar'
+            new URL('https://github.com/NordicID/nur_sdk/raw/master/java/NurApi.jar').withInputStream { i ->
+                f.withOutputStream {
+                    it << i
+                }
+            }
+            println 'Done'
+        }
+        def f2 = new File('nurapiandroid/NurApiAndroid.aar')
+        if (!f2.exists()) {
+            println 'Downloading latest NurApiAndroid.aar'
+            new URL('https://github.com/NordicID/nur_nurapi_android/raw/master/prebuilt/NurApiAndroid.aar').withInputStream{ i -> f2.withOutputStream{ it << i }}
+            println 'Done'
+        }
+    }
+    buildToolsVersion '26.0.2'
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
+}
+
+dependencies {
+    api project(':nurapi')
+    api project(':NurApiAndroid')
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+}
