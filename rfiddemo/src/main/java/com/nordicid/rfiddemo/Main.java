@@ -984,8 +984,8 @@ public class Main extends AppTemplate {
 
                     try {
                         final TextView connDetails = (TextView) dialogLayout.findViewById(R.id.conn_info);
-                        accessoryBldrVersion.setText(getString(R.string.about_dialog_conn_info) + " " + getAccessoryApi().getConnectionInfo());
-                        accessoryBldrVersion.setVisibility(View.VISIBLE);
+                        connDetails.setText(getString(R.string.about_dialog_conn_info) + " " + getAccessoryApi().getConnectionInfo());
+                        connDetails.setVisibility(View.VISIBLE);
                     } catch (Exception ex)
                     {
                         // Ignore exception, connection info is not available on old FW
