@@ -8,7 +8,10 @@ Explore the most common RFID applications with the Nordic ID RFID Demo App. Comb
 * Supports RFID readers of the Nordic ID with USB, Bluetooth Low Energy, ethernet and WLAN interfaces
  
 Featured functionalities:
-•         Inventory
-•         Locate
-•         Write
-•         Barcode 
+* Inventory
+* Locate
+* Write
+* Barcode 
+
+### License
+All source files in this repository is provided under terms specified in [LICENSE](LICENSE) file.
