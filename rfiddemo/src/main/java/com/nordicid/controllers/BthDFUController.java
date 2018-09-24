@@ -9,6 +9,8 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.os.Build;
+import android.os.CountDownTimer;
 import android.os.Handler;
 import android.util.Log;
 
@@ -35,6 +37,20 @@ public class BthDFUController extends UpdateController{
     private Context mContext = null;
     private DfuServiceController mDFUServiceController = null;
     Handler mHandler;
+
+    CountDownTimer cdt = new CountDownTimer(30000,1000) {
+        @Override
+        public void onTick(long millisUntilFinished) {
+            Log.i(TAG,"timer=" + millisUntilFinished);
+        }
+
+        @Override
+        public void onFinish() {
+            mBthFwControllerListener.onUpdateError("",1000,3,"Timeout!");
+            mDFUServiceController = null;
+            disposeGatt();
+        }
+    };
 
     public interface BthFirmwareControllerListener {
         void onDeviceConnected(String address);
@@ -96,6 +112,7 @@ public class BthDFUController extends UpdateController{
 
         @Override
         public void onProgressChanged(String deviceAddress, int percent, float speed, float avgSpeed, int currentPart, int partsTotal) {
+            cdt.cancel();
             mBthFwControllerListener.onProgressChanged(deviceAddress,percent,speed,avgSpeed,currentPart,partsTotal);
         }
 
@@ -131,7 +148,26 @@ public class BthDFUController extends UpdateController{
         /** on any error this will be triggered **/
         @Override
         public void onError(String deviceAddress, int error, int errorType, String message) {
-            mBthFwControllerListener.onUpdateError(deviceAddress,error,errorType,message);
+            Log.i(TAG,"onERROR:" + error + " type=" + errorType + " msg=" + message);
+
+            //if(error == 517) return; //just ignore this
+
+            if(error == 1029 || error == 8203 || error == 4104) {
+                //Ignore this. Could be update from 2.x.x to 5.x.x (FW VERSION ERROR (dfu api 1.6.1) or UNKNOWN ERROR dfu api 1.3.0
+                cdt.start(); //Start countdown timer to break up if nothing happens after these errors
+                return;
+            }
+
+            if(error == 8197 || error==520 || error == 517) //REMOTE DFU INVALID CRC ERROR. Just let's try again.
+            {
+                //mDFUServiceController = null;
+                //disposeGatt();
+                //startUpdate();
+                startDfuUpdate();
+                return;
+            }
+
+            mBthFwControllerListener.onUpdateError(deviceAddress,error,errorType,"Timeout");
             mDFUServiceController = null;
             disposeGatt();
         }
@@ -192,6 +228,10 @@ public class BthDFUController extends UpdateController{
      * @return true if remote is newer false if not
      */
     public boolean checkVersion(String currentVersion, String remoteVersion){
+        //Remove all except numbers and dots
+
+        remoteVersion = remoteVersion.replaceAll("[^0-9.]", "");
+
         String[] currentSplits = currentVersion.split("\\.");
         String[] remoteSplits = remoteVersion.split("\\.");
         int i = 0;
@@ -211,13 +251,19 @@ public class BthDFUController extends UpdateController{
 
     private void startDfuUpdate()
     {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            DfuServiceInitiator.createDfuNotificationChannel(mContext);
+        }
+
         DfuServiceListenerHelper.registerProgressListener(mContext,mDfuProgressListener);
         final DfuServiceInitiator dfuStarter = new DfuServiceInitiator(mDFUDeviceAddress)
                 .setKeepBond(true)
+                .setPacketsReceiptNotificationsEnabled(true)
                 .setDeviceName("Nordic ID device")
-                // .setDisableNotification(true)
+                //.setDisableNotification(true)
                 .setForceDfu(true)
                 .setZip(mFilePath);
+
         mDFUServiceController = dfuStarter.start(mContext, DfuService.class);
     }
 
@@ -260,12 +306,14 @@ public class BthDFUController extends UpdateController{
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.i("onConnectionStateChange", "Status: " + status);
+            Log.i(TAG,"onConnectionStateChange Status: " + status + " newState=" + newState);
             switch (newState) {
                 case BluetoothProfile.STATE_CONNECTED:
-                    Log.i(TAG, "gattCallback: STATE_CONNECTED");
+                    //Log.i(TAG, "gattCallback: STATE_CONNECTED");
                     mWaitingForConnect = false;
                     mWaitingForDiscover = true;
+                    //startDfuUpdate();
+
                     // post 1sec delayed, fix some huawei phones..
                     mHandler.postDelayed(new Runnable() {
                                       @Override
@@ -277,11 +325,13 @@ public class BthDFUController extends UpdateController{
                                           mGatt.discoverServices();
                                       }
                                   }, 1000);
+
                     break;
 
                 case BluetoothProfile.STATE_DISCONNECTED:
                     mHandler.removeCallbacks(mDiscoverServicesJamCheck);
                     Log.e(TAG, "gattCallback: STATE_DISCONNECTED; " + mWaitingForConnect + "; " + mWaitingForDiscover + "; " + mRetry);
+                    
                     if (mWaitingForConnect || mWaitingForDiscover)
                     {
                         mWaitingForConnect = false;
@@ -304,9 +354,10 @@ public class BthDFUController extends UpdateController{
                             });
                         }
                     }
+                    
                     break;
                 default:
-                    Log.e(TAG, "gattCallback: STATE_OTHER");
+                    //Log.e(TAG, "gattCallback: STATE_OTHER");
             }
 
         }

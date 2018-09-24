@@ -5,8 +5,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.apptemplate.SubAppList;
@@ -41,6 +39,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.nordicid.nurapi.NurSmartPairSupport;
+
 public class Main extends AppTemplate {
 
     // Check whether this string is found in the given filename.
@@ -64,8 +64,6 @@ public class Main extends AppTemplate {
      */
     public static final int REQ_FILE_OPEN = 4242;
 
-    Timer timer;
-    TimerTask timerTask;
     final Handler timerHandler = new Handler();
     boolean mEnableTimerPing = false;
 
@@ -88,8 +86,7 @@ public class Main extends AppTemplate {
         return mDFUController;
     }
 
-    // TODO GEt transport
-    public NurApiAutoConnectTransport getAutoConnectTrasport()
+    public NurApiAutoConnectTransport getAutoConnectTransport()
     {
         return mAcTr;
     }
@@ -118,43 +115,6 @@ public class Main extends AppTemplate {
     public boolean getDoNotDisconnectOnStop()
     {
         return mDoNotDisconnectOnStop;
-    }
-
-    public void startTimer() {
-
-        stopTimer();
-
-        //set a new Timer
-        timer = new Timer();
-
-        //initialize the TimerTask's job
-        initializeTimerTask();
-
-        //schedule the timer, after the first 5000ms the TimerTask will run every 1000ms
-        timer.schedule(timerTask, 5000, 1000); //
-    }
-
-    public void stopTimer() {
-        //stop the timer, if it's not already null
-        if (timer != null) {
-            timer.cancel();
-            timer = null;
-        }
-    }
-
-    public void initializeTimerTask() {
-
-        timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                timerHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateStatus();
-                    }
-                });
-            }
-        };
     }
 
     public static Main getInstance() {
@@ -208,9 +168,7 @@ public class Main extends AppTemplate {
 
     public void saveKeyFilename(String fileName) {
         SharedPreferences.Editor editor = mApplicationPrefences.edit();
-
         editor.putString(KEYFILE_PREFNAME, fileName);
-
         editor.apply();
     }
 
@@ -240,9 +198,12 @@ public class Main extends AppTemplate {
         Beeper.setEnabled(mApplicationPrefences.getBoolean("Sounds", true));
 
         String specStr = mApplicationPrefences.getString("specStr", "");
-        if (specStr.length() == 0 && Build.MANUFACTURER.toLowerCase().contains("nordicid")) {
-            // Defaults to integrated reader
-            specStr = "type=INT;addr=integrated_reader";
+        if (specStr.length() == 0) {
+            String manufacturer = Build.MANUFACTURER.toLowerCase();
+            if (manufacturer.contains("nordicid") || manufacturer.contains("nordic id")) {
+                // Defaults to integrated reader
+                specStr = "type=INT;addr=integrated_reader";
+            }
         }
 
         if (specStr.length() > 0)
@@ -264,6 +225,9 @@ public class Main extends AppTemplate {
                 e.printStackTrace();
             }
         }
+
+        NurSmartPairSupport.setSettingsString(mApplicationPrefences.getString("SmartPairSettings", "{}"));
+
         updateStatus();
     }
 
@@ -271,6 +235,10 @@ public class Main extends AppTemplate {
 
     void updateStatus()
     {
+        // Log.d(TAG, "updateStatus() " + mConnectedName + "; " + mApi.isConnected());
+
+        int nextUpdate = 2000;
+
         if (mAcTr != null)
         {
             if (mEnableTimerPing && mApi.isConnected())
@@ -334,7 +302,9 @@ public class Main extends AppTemplate {
                 mConnectedName = "Connected to " + mConnectedName;
             }
             else if (!mApi.isConnected()) {
+                // Not connected, check updates in 500ms
                 mConnectedName = "";
+                nextUpdate = 500;
             }
 
             if (mConnectedName.length() == 0) {
@@ -343,25 +313,73 @@ public class Main extends AppTemplate {
                 setStatusText(mConnectedName);
             }
         } else {
+            mConnectedName = "";
             setStatusText("No connection defined");
         }
+
+        timerHandler.removeCallbacks(mUpdateStatusRunnable);
+
+        if (!Main.getAppTemplate().isApplicationPaused()) {
+            try {
+                timerHandler.postDelayed(mUpdateStatusRunnable, nextUpdate);
+            } catch (Exception e) {
+                Log.e(TAG, e.toString());
+            }
+        }
+    }
+
+    Runnable mUpdateStatusRunnable = new Runnable() {
+        @Override
+        public void run() {
+            updateStatus();
+        }
+    };
+
+    static boolean mShowingSmartPair = false;
+
+    boolean showSmartPairUI()
+    {
+        if (mApi.isConnected())
+            return false;
+
+        SharedPreferences pref = Main.getApplicationPrefences();
+        if (!pref.getBoolean("SmartPairShowUi", true))
+            return false;
+
+        try {
+            Log.d(TAG, "showSmartPairUI()");
+            Intent startIntent = new Intent(this, Class.forName ("com.nordicid.smartpair.SmartPairConnActivity"));
+            startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(startIntent);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 
     @Override
     protected void onPause() {
-        Log.d(TAG, "onPause() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop);
+        Log.d(TAG, "onPause() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop + "; mShowingSmartPair " + mShowingSmartPair);
         super.onPause();
 
-        stopTimer();
+        timerHandler.removeCallbacksAndMessages(null);
 
         if (mAcTr != null && !mDoNotDisconnectOnStop) {
             mAcTr.onPause();
+        }
+
+        if (mShowingSmartPair) {
+            // Keep main ui refreshing
+            mApplicationPaused = false;
+            updateStatus();
         }
     }
 
     @Override
     protected void onResume() {
-        Log.d(TAG, "onResume() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop);
+        Log.d(TAG, "onResume() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop + "; mShowingSmartPair " + mShowingSmartPair);
         super.onResume();
         Beeper.init();
 
@@ -375,13 +393,31 @@ public class Main extends AppTemplate {
         // Reset flag
         mDoNotDisconnectOnStop = false;
 
-        startTimer();
+        if (!mShowingSmartPair && mAcTr != null) {
+            String clsName = mAcTr.getClass().getSimpleName();
+            if (clsName.equals("NurApiSmartPairAutoConnect")) {
+                mShowingSmartPair = showSmartPairUI();
+            }
+        } else {
+            mShowingSmartPair = false;
+        }
+
+        updateStatus();
+    }
+
+    @Override
+    protected void onResumeFragments() {
+        super.onResumeFragments();
+        updateStatus();
     }
 
     @Override
     protected void onStop() {
-        Log.d(TAG, "onStop() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop);
+        Log.d(TAG, "onStop() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop + "; mShowingSmartPair " + mShowingSmartPair);
         super.onStop();
+
+        mShowingSmartPair = false;
+        timerHandler.removeCallbacksAndMessages(null);
 
         if (mAcTr != null && !mDoNotDisconnectOnStop) {
             mAcTr.onStop();
@@ -475,7 +511,7 @@ public class Main extends AppTemplate {
     }
 
     @Override
-    public void onCreateSubApps(SubAppList subAppList) {
+    public void onCreateSubApps(final SubAppList subAppList) {
         gInstance = this;
         BleScanner.init(this);
 
@@ -517,19 +553,49 @@ public class Main extends AppTemplate {
         setAppListener(new NurApiListener() {
             @Override
             public void disconnectedEvent() {
+                timerHandler.removeCallbacks(mSmartPairDisconRunnable);
+                mSmartPairDisconButtons[0] = mSmartPairDisconButtons[1] = 0;
+
+                Log.d(TAG, "disconnectedEvent() " + mConnectedName + "; " + mApi.isConnected());
+
                 if (exitingApplication())
                     return;
+
                 updateStatus();
+                /*mConnectedName = "";
+                if (mAcTr != null)
+                    setStatusText(mAcTr.getDetails());
+                else
+                    setStatusText("No connection defined");*/
+
                 Toast.makeText(Main.this, getString(R.string.reader_disconnected), Toast.LENGTH_SHORT).show();
                 getSubAppList().getApp("Barcode").setIsVisibleInMenu(false);
                 getSubAppList().getApp("Authentication").setIsVisibleInMenu(false);
-                // If current app not available anymore, return to main menu
-                if (!isApplicationPaused() && getSubAppList().getCurrentOpenSubApp() == null)
-                    setApp(null);
+
+                if (!isApplicationPaused()) {
+                    // If current app not available anymore, return to main menu
+                    if (getSubAppList().getCurrentOpenSubApp() == null)
+                        setApp(null);
+
+                    // Show smart pair ui
+                    if (!mShowingSmartPair && mAcTr != null) {
+                        String clsName = mAcTr.getClass().getSimpleName();
+                        if (clsName.equals("NurApiSmartPairAutoConnect")) {
+                            mShowingSmartPair = showSmartPairUI();
+                        }
+                    } else {
+                        mShowingSmartPair = false;
+                    }
+                }
             }
 
             @Override
             public void connectedEvent() {
+                timerHandler.removeCallbacks(mSmartPairDisconRunnable);
+                mSmartPairDisconButtons[0] = mSmartPairDisconButtons[1] = 0;
+
+                Log.d(TAG, "connectedEvent() " + mConnectedName + "; " + mApi.isConnected());
+
                 try {
                     updateStatus();
                     isApplicationMode = mApi.getMode().equalsIgnoreCase("A");
@@ -547,14 +613,25 @@ public class Main extends AppTemplate {
                     mNURAPPController.setAPPVersion(getNurAppVersion());
                     mNURAPPController.setHWType(module);
                     mNURAPPController.setBldrVersion(getNurBldrVersion());
+
                     if(checkUpdatesEnabled())
                         checkDeviceUpdates();
-                    Toast.makeText(Main.this, getString(R.string.reader_connected), Toast.LENGTH_SHORT).show();
-                    if(!isApplicationMode)
+
+                    if (!isApplicationMode)
                         Toast.makeText(Main.this, getString(R.string.device_boot_mode), Toast.LENGTH_LONG).show();
-                    // Show barcode app only for accessory devices
-                    getSubAppList().getApp("Barcode").setIsVisibleInMenu(getAccessorySupported());
+                    else
+                        Toast.makeText(Main.this, getString(R.string.reader_connected), Toast.LENGTH_SHORT).show();
+
+                    // Authentication always hidden for now
                     getSubAppList().getApp("Authentication").setIsVisibleInMenu(/*fwVer >= AUTH_REQUIRED_VERSION*/ false);
+
+                    // Show barcode app only for accessory devices w/ barcode reader
+                    if (getAccessorySupported() && getAccessoryApi().getConfig().hasImagerScanner()) {
+                        getSubAppList().getApp("Barcode").setIsVisibleInMenu(true);
+                    } else {
+                        getSubAppList().getApp("Barcode").setIsVisibleInMenu(false);
+                    }
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -621,7 +698,41 @@ public class Main extends AppTemplate {
             }
 
             @Override
-            public void IOChangeEvent(NurEventIOChange event) {
+            public void IOChangeEvent(NurEventIOChange event)
+            {
+                // Holding "Power" and "Pair" buttons for 1.5secs disconnects device (only Smart Pair connection)
+                String clsName = mAcTr.getClass().getSimpleName();
+                if (clsName.equals("NurApiSmartPairAutoConnect"))
+                {
+                    if (event.source >= 101 && event.source <= 102) {
+                        mSmartPairDisconButtons[(event.source - 101)] = event.direction;
+
+                        if (mSmartPairDisconButtons[0] + mSmartPairDisconButtons[1] == 2) {
+                            // Both buttons down
+                            if (!mSmartPairDisconScheduled) {
+                                mSmartPairDisconScheduled = true;
+                                Log.d(TAG, "Smart Pair disconnect sheduled");
+                                // Start led blinkin on EXA side to notify user about disconnect in 1.5sec
+                                try {
+                                    getAccessoryApi().setLedOpMode(3);
+                                }catch (Exception e) { }
+                                // Schedule disconnect
+                                timerHandler.postDelayed(mSmartPairDisconRunnable, 1500);
+                            }
+                        } else {
+                            // Buttons up (one or both)
+                            if (mSmartPairDisconScheduled) {
+                                mSmartPairDisconScheduled = false;
+                                Log.d(TAG, "Smart Pair disconnect cancelled");
+                                timerHandler.removeCallbacks(mSmartPairDisconRunnable);
+                                // Stop led blinking
+                                try {
+                                    getAccessoryApi().setLedOpMode(0);
+                                }catch (Exception e) { }
+                            }
+                        }
+                    }
+                }
             }
 
             @Override
@@ -638,6 +749,52 @@ public class Main extends AppTemplate {
         beginHint();
     }
 
+    boolean mSmartPairDisconScheduled = false;
+
+    Runnable mSmartPairDisconRunnable = new Runnable() {
+        @Override
+        public void run() {
+
+            if (!getNurApi().isConnected())
+                return;
+
+            try {
+                Log.d(TAG, "User Disconnect Smart Pair");
+
+                // Beep on host side to notify user about disconnect
+                Beeper.beep(Beeper.BEEP_100MS);
+
+                // Stop led blink
+                try {
+                    getAccessoryApi().setLedOpMode(0);
+                }catch (Exception e) { }
+
+                final String addr = mAcTr.getAddress();
+
+                // Disconnect
+                mAcTr.setAddress("");
+
+                // reconnect after 2sec
+                timerHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Reconnect
+                        mAcTr.setAddress(addr);
+                    }
+                }, 2000);
+
+            } catch (Exception e)
+            {
+                e.printStackTrace();
+            }
+
+            // Make sure no discon scheduled
+            timerHandler.removeCallbacks(mSmartPairDisconRunnable);
+        }
+    };
+
+    int []mSmartPairDisconButtons = new int[] { 0, 0 };
+
     int testmodeClickCount = 0;
     long testmodeClickTime = 0;
 
@@ -652,6 +809,8 @@ public class Main extends AppTemplate {
                 testmodeClickCount++;
 
                 if (testmodeClickCount == 10) {
+                    mDFUController.setAppSource(getString(R.string.DFU_TEST_APP_SRC));
+                    mDFUController.setBldrSource(getString(R.string.DFU_TEST_BLDR_SRC));
                     Toast.makeText(Main.this, "Test Mode enabled", Toast.LENGTH_SHORT).show();
                     getSubAppList().getApp("Test Mode").setIsVisibleInMenu(true);
                 }
@@ -753,7 +912,7 @@ public class Main extends AppTemplate {
                 return mApi.getFwInfo().get("MODULE");
             }
         } catch (Exception e){
-            Log.e(TAG,e.getMessage());
+            Log.e(TAG,e.toString());
         }
         return null;
     }
@@ -763,7 +922,7 @@ public class Main extends AppTemplate {
             if(mApi.isConnected())
                 return ((isApplicationMode) ? mApi.getVersions().primaryVersion : mApi.getVersions().secondaryVersion);
         } catch (Exception e){
-            //
+            Log.e(TAG,e.toString());
         }
         return null;
     }
@@ -787,23 +946,52 @@ public class Main extends AppTemplate {
         boolean dfuBldr = mDFUController.isBldrUpdateAvailable();
         boolean nurApp = mNURAPPController.isAppUpdateAvailable();
         boolean nurBldr = mNURAPPController.isBldrUpdateAvailable();
+
+        String manufacturer = Build.MANUFACTURER.toLowerCase();
+        if (manufacturer.contains("nordicid") || manufacturer.contains("nordic id")) {
+            dfuApp=false;
+            dfuBldr=false;
+        }
+
         if(dfuApp || dfuBldr || nurApp || nurBldr) {
             final AlertDialog.Builder alertDialog = new AlertDialog.Builder(gInstance);
             alertDialog.setTitle("Available Updates:");
             String message = "";
-            if(dfuApp)
-                message += "Device application available : " + mDFUController.getAvailableAppUpdateVerion();
-            if(dfuBldr) {
-                final NurAccessoryVersionInfo accessoryVersion = getAccesoryVersionInfo();
-                int myVer = 0;
-                int upVer = 0;
+            final NurAccessoryVersionInfo accessoryVersion = getAccesoryVersionInfo();
+            int myVer = 0;
+            int upVer = 0;
 
+            if(dfuApp) {
+                try {
+
+                    String ver1 = accessoryVersion.getApplicationVersion();
+
+                    String ver2 = mDFUController.getAvailableAppUpdateVerion();
+                    ver1 = ver1.replaceAll("[^0-9]", "");
+                    ver2 = ver2.replaceAll("[^0-9]", "");
+
+                    myVer = Integer.parseInt(ver1);
+                    upVer = Integer.parseInt(ver2);
+
+                    Log.e("VER","appVer=" + accessoryVersion.getApplicationVersion() + " ver=" + myVer);
+                    Log.e("VER","availVer=" +mDFUController.getAvailableAppUpdateVerion() + " ver=" + upVer);
+
+                    if(myVer<upVer)
+                        message += "Device application available : " + mDFUController.getAvailableAppUpdateVerion();
+                }
+                catch (NumberFormatException ne)
+                {
+                    Log.e("VER","NumberFormatException=" + ne.getMessage());
+                    //message +="\nNo updates available";
+                }
+
+            }
+            if(dfuBldr) {
                 try {
                     Log.e("myVer=",accessoryVersion.getBootloaderVersion());
                     Log.e("upVer=",mDFUController.getAvailableBldrUpdateVerion());
                     myVer = Integer.parseInt(accessoryVersion.getBootloaderVersion());
                     upVer = Integer.parseInt(mDFUController.getAvailableBldrUpdateVerion());
-
 
                     if(myVer < upVer)
                         message += "\nDevice bootloader available : " + mDFUController.getAvailableBldrUpdateVerion();
@@ -935,7 +1123,7 @@ public class Main extends AppTemplate {
 
         String appversion = "0.0";
         try {
-            appversion = this.getPackageManager().getPackageInfo("com.nordicid.rfiddemo", 0).versionName;
+            appversion = this.getPackageManager().getPackageInfo(BuildConfig.APPLICATION_ID, 0).versionName;
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
         }
@@ -945,7 +1133,12 @@ public class Main extends AppTemplate {
 
         final TextView nurApiVersion = (TextView) dialogLayout.findViewById(R.id.nur_api_version);
         //nurApiVersion.setText(getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion());
-        nurApiVersion.setText(getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion() + "; androidapi " + NurApiAndroid.getVersion());
+
+        String verStr = getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion() + "; androidapi " + NurApiAndroid.getVersion();
+        if (NurSmartPairSupport.isSupported()) {
+            verStr += "; smartpair " + NurSmartPairSupport.getVersion();
+        }
+        nurApiVersion.setText(verStr);
 
         if (getNurApi().isConnected()) {
 
@@ -962,8 +1155,12 @@ public class Main extends AppTemplate {
                 serialTextView.setText(getString(R.string.about_dialog_serial) + " " + readerInfo.serial);
                 serialTextView.setVisibility(View.VISIBLE);
 
+                final TextView deviceSerialTextView = (TextView) dialogLayout.findViewById(R.id.device_serial);
+                deviceSerialTextView.setText(getString(R.string.about_dialog_device_serial) + " " + readerInfo.altSerial);
+                deviceSerialTextView.setVisibility(View.VISIBLE);
+
                 final TextView firmwareTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_firmware);
-                firmwareTextView.setText(getString(R.string.about_dialog_firmware) + " " + getNurAppVersion());
+                firmwareTextView.setText("Firmware: " + getNurAppVersion());
                 firmwareTextView.setVisibility(View.VISIBLE);
 
                 final TextView bootloaderTextView = (TextView) dialogLayout.findViewById(R.id.reader_bootloader_version);

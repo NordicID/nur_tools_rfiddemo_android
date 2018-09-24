@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <LinearLayout
+        android:id="@+id/layout_inventorySettings"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="20dp"
+        android:paddingLeft="15dp"
+        android:paddingRight="15dp"
+        android:paddingTop="30dp">
+
+        <TextView
+            android:id="@+id/textInvSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Inventory type" />
+
+        <Spinner
+            android:id="@+id/inv_mode_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/inv_type_entries"/>
+
+        <TextView
+            android:id="@+id/textDataLength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Length in words" />
+
+        <Spinner
+            android:id="@+id/data_length_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:layout_weight="1" />
+
+        <CheckBox
+            android:id="@+id/checkBoxExport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Export to file" />
+
+        <TextView
+            android:id="@+id/textExportInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/text_export_info"/>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/radioHdr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Trigger button behavior" />
+
+        <RadioGroup
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <RadioButton
+                android:id="@+id/radio_trig_click"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Start/stop reading by trigger press" />
+
+            <RadioButton
+                android:id="@+id/radio_trig_down"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Reading while trigger pressed down" />
+        </RadioGroup>
+
+    </LinearLayout>
+
+
+</LinearLayout>

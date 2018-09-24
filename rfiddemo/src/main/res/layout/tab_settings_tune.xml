@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical" >
-    
+
 	<LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -16,17 +16,14 @@
             android:layout_height="match_parent"
             android:ems="10"
             android:inputType="none"
-            android:minHeight="200dp"
             android:text="No results yet.."
             android:scrollbars="vertical"
             android:layout_gravity="top"/>
-
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dip"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:gravity="center|bottom"
         android:orientation="vertical" >
         <Button

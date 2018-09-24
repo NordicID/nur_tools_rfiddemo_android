@@ -2,6 +2,7 @@ package com.nordicid.rfiddemo;
 
 import com.nordicid.apptemplate.SubApp;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
+import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
 import com.nordicid.nurapi.NurEventClientInfo;
@@ -19,13 +20,19 @@ import com.nordicid.nurapi.NurEventTriggeredRead;
 import com.nordicid.nurapi.NurPacket;
 import com.nordicid.nurapi.NurRespRegionInfo;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
+import android.text.InputType;
+import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Button;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import java.util.ArrayList;
 
@@ -44,6 +51,8 @@ public class TestModeApp extends SubApp {
 
     private Button mStartButton;
     private Button mStartNurButton;
+
+    private ToggleButton mRegionLockDevice;
 
     @Override
     public NurApiListener getNurApiListener() {
@@ -258,6 +267,7 @@ public class TestModeApp extends SubApp {
         mNurTestTypeSpinner.setEnabled(getNurApi().isConnected());
         mNurChannelSpinner.setEnabled(getNurApi().isConnected());
         mStartNurButton.setEnabled(getNurApi().isConnected());
+        mRegionLockDevice.setEnabled(getNurApi().isConnected());
 
         if (getNurApi().isConnected())
         {
@@ -289,6 +299,21 @@ public class TestModeApp extends SubApp {
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
                 mNurChannelSpinner.setAdapter(adapter);
 
+                /** Check if device region locked **/
+                try{
+                    int regionSetup = getNurApi().getSetupRegionId();
+                    // try to change region to one other than the current one
+                    int testregion = regionSetup > 0 ? 0 : 1;
+                    getNurApi().setSetupRegionId(testregion);
+                    // expected NurAPIException 5 if device is region locked
+                    mRegionLockDevice.setChecked(false);
+                    // Restore
+                    getNurApi().setSetupRegionId(regionSetup);
+                } catch (Exception e) {
+                    mRegionLockDevice.setChecked(true);
+                }
+                /** **/
+
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -301,9 +326,12 @@ public class TestModeApp extends SubApp {
         mNurChannelSpinner = (Spinner) view.findViewById(R.id.tm_nur_test_channel);
         mBleTestTypeSpinner = (Spinner) view.findViewById(R.id.tm_ble_test_type);
         mBleChannelSpinner = (Spinner) view.findViewById(R.id.tm_ble_test_channel);
+        mRegionLockDevice = (ToggleButton) view.findViewById(R.id.regionLock_checkbox);
 
         mStartButton = (Button) view.findViewById(R.id.tm_start_test);
         mStartNurButton = (Button) view.findViewById(R.id.tm_start_nur_test);
+
+        mRegionLockDevice.setOnClickListener(mRegionalLockListener);
 
         ArrayAdapter<CharSequence> nurTestTypeSpinnerAdapter = ArrayAdapter.createFromResource(getActivity(), R.array.tm_nur_test_types, android.R.layout.simple_spinner_item);
         nurTestTypeSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -340,5 +368,59 @@ public class TestModeApp extends SubApp {
                 startNurOnlyTest();
             }
         });
+    }
+
+    View.OnClickListener mRegionalLockListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            mRegionLockDevice.setChecked(!mRegionLockDevice.isChecked());
+            if (getNurApi().isConnected()) {
+                try {
+                    final int region = getNurApi().getSetupRegionId();
+                    final boolean lockState = mRegionLockDevice.isChecked();
+                    AlertDialog.Builder alert = new AlertDialog.Builder(Main.getInstance());
+                    alert.setTitle("Unlock Code");
+                    alert.setMessage("Please enter the lock/unlock code.");
+                    final EditText input = new EditText(Main.getInstance());
+                    input.setInputType(InputType.TYPE_CLASS_TEXT);
+                    input.setTransformationMethod(PasswordTransformationMethod.getInstance());
+                    alert.setView(input);
+                    alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            try {
+                                getNurApi().customCmd(CMD_PRODUCTION_CFG,(!lockState) ? getLockRegionCommand(input.getText().toString(),region) : getLockRegionCommand(input.getText().toString(),-1));
+                                getNurApi().storeSetup(NurApi.STORE_RF);
+                                mRegionLockDevice.setChecked(!lockState);
+                                Toast.makeText(Main.getInstance(),"Device region successfully " + ((lockState) ? "unlocked" : "locked"),Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                Toast.makeText(Main.getInstance(),"Failed to " + ((lockState) ? "unlock" : "lock") + " device",Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+                    alert.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int whichButton) {
+                            // do nothing
+                        }
+                    });
+                    alert.show();
+                } catch (Exception e) {
+                    Toast.makeText(getActivity(), "Problem occured while setting region lock", Toast.LENGTH_SHORT).show();
+                    e.printStackTrace();
+                }
+            }
+        }
+    };
+
+    private byte CMD_PRODUCTION_CFG = 0x76;
+
+    private byte[] getLockRegionCommand(String command,int regionId) throws Exception{
+        byte[] commandAr = NurApi.hexStringToByteArray(command);
+        if(regionId != -1) {
+            byte[] cmdArray = new byte[commandAr.length + 1];
+            System.arraycopy(commandAr, 0, cmdArray, 0, commandAr.length);
+            cmdArray[cmdArray.length - 1] = (byte) regionId;
+            return cmdArray;
+        }
+        return commandAr;
     }
 }

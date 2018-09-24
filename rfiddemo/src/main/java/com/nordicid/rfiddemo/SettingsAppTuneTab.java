@@ -92,25 +92,23 @@ public class SettingsAppTuneTab extends Fragment
 	            	if (inputMessage.what == 0)
 	            	{
 	            		int ant = (Integer)inputMessage.obj;
-	            		String text;
-						if (ant >= mAntMapping.length)
-							text = "Tuning antenna #" + (ant+1);
-						else
-							text = "Tuning " + mAntMapping[ant].name;
+	            		String title;
+						if (ant >= mAntMapping.length) {
+							text += "Antenna #" + (ant + 1) + ":\n";
+							title = "Tuning antenna #" + (ant + 1);
+						} else {
+							text += mAntMapping[ant].name + ":\n";
+							title = "Tuning " + mAntMapping[ant].name;
+						}
 
-						barProgressDialog.setMessage(text);
-	            	}
+						barProgressDialog.setMessage(title);
+		        	}
 	            	else if (inputMessage.what == 1)
 	            	{
 	            		mCurAnt++;
 	            		barProgressDialog.setProgress(mCurAnt);
 	            		
 	            		NurTuneResponse[] r = (NurTuneResponse[])inputMessage.obj;
-						if (r[0].antenna >= mAntMapping.length)
-	            			text += "Antenna #" + (r[0].antenna+1) + ":\n";
-						else
-							text += mAntMapping[r[0].antenna].name + ":\n";
-
 	            		for (int n=0; n<r.length; n++)
 	            		{
 	            			if (n > 0)
@@ -118,12 +116,11 @@ public class SettingsAppTuneTab extends Fragment
 	            			text += r[n].frequency + "=" + r[n].dBm;
 	            		}
 	            		text += "\n\n";
-	            		
-	            		mEditText.setText(text);
 	            	}
 	            	else if (inputMessage.what == 2)
 	            	{
 	            		barProgressDialog.dismiss();
+						mEditText.setText(text);
 	            	}
 	            }
 			};	
@@ -132,7 +129,6 @@ public class SettingsAppTuneTab extends Fragment
 		if (mApi.isConnected())
 		{
 			try {
-				
 				mEditText.setText("Please wait..");
 				text = "Tune Results\n\n";
 
@@ -164,7 +160,7 @@ public class SettingsAppTuneTab extends Fragment
 						try {
 							for (int n=0; n<selInd.size(); n++)
 							{
-								completeMessage = mHandler.obtainMessage(0, n);
+								completeMessage = mHandler.obtainMessage(0, selInd.get(n));
 				                completeMessage.sendToTarget();
 								r = mApi.tuneAntenna(selInd.get(n), true, true);
 								completeMessage = mHandler.obtainMessage(1, r);

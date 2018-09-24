@@ -1,1 +1,1 @@
-include ':nurapi', ':apptemplate', ':rfiddemo', ':NurApiAndroid'
+include ':nurapi', ':apptemplate', ':rfiddemo', ':NurApiAndroid', ':NurSmartPair'

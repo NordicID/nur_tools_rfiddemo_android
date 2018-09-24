@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -53,8 +54,7 @@ public class SettingsAppImagerTab extends Fragment
 
     NurAccessoryExtension mExt;
 
-    TextView mImagerConfigInfoLabel;
-
+    private TextView mTextTop;
     private Button mOpenCfgFile;
     private Button mBarcodeTest;
     private TextView mUserGuideLink;
@@ -77,14 +77,14 @@ public class SettingsAppImagerTab extends Fragment
             @Override
             public void connectedEvent() {
                 if (isAdded()) {
-                    enableItems(true);
+                    enableItems();
                 }
             }
 
             @Override
             public void disconnectedEvent() {
                 if (isAdded()) {
-                    enableItems(false);
+                    enableItems();
                 }
             }
 
@@ -125,44 +125,28 @@ public class SettingsAppImagerTab extends Fragment
         if (val)
         {
             if (isAdded()) {
-                enableItems(mApi.isConnected());
+                enableItems();
             }
         }
     }
 
-    private void enableItems(boolean v)
-    {
-        mOpenCfgFile.setEnabled(v);
-        mBarcodeTest.setEnabled(v);
+    private void enableItems() {
 
-        /*
-        if (v == true)
-        {
-            mLinkHeader.setText("How to generate configuration file?");
-            try
-            {
-
-                NurAccessoryConfig cfg = mExt.getConfig();
-
-                if (cfg.isDeviceEXA51()) {
-                    mUserGuideLink.setText("https://www.nordicid.com/en/home/products-barcode-uhf-rfid-reader-writer/extensions-for-smart-devices/nordic-id-exa51/#tab_support-and-downloads");
-                } else {
-                    mUserGuideLink.setText("https://www.nordicid.com/en/home/products-barcode-uhf-rfid-reader-writer/extensions-for-smart-devices/nordic-id-exa31/#tab_support-and-downloads");
-                }
-
-            } catch (Exception ex) {
-                String strErr = ex.getMessage();
-                Toast.makeText(getActivity(), "Error:\n" + strErr, Toast.LENGTH_SHORT).show();
+        if (mApi.isConnected()) {
+            if (Main.getAppTemplate().getAccessorySupported()) {
+                mTextTop.setText("Load Imager configuration from file");
+                mOpenCfgFile.setVisibility(View.VISIBLE);
+                mBarcodeTest.setVisibility(View.VISIBLE);
+                mUserGuideLink.setVisibility(View.VISIBLE);
+                mLinkHeader.setVisibility(View.VISIBLE);
+            } else {
+                mTextTop.setText("IMAGER NOT SUPPORTED!");
+                mOpenCfgFile.setVisibility(View.INVISIBLE);
+                mBarcodeTest.setVisibility(View.INVISIBLE);
+                mUserGuideLink.setVisibility(View.INVISIBLE);
+                mLinkHeader.setVisibility(View.INVISIBLE);
             }
         }
-        else
-        {
-
-            mUserGuideLink.setText("");
-            mLinkHeader.setText("");
-
-        }
-        */
     }
 
     private void handleSetConfiguration()
@@ -194,12 +178,14 @@ public class SettingsAppImagerTab extends Fragment
         return inflater.inflate(R.layout.tab_settings_imager, container, false);
     }
 
+
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState)
     {
         super.onViewCreated(view, savedInstanceState);
        // mImagerConfigInfoLabel = (TextView)view.findViewById(R.id.imagerConfigInfo);
         //mImagerConfigInfoLabel.setText = "Hello imager config";
+        mTextTop = (TextView) view.findViewById(R.id.textView);
         mOpenCfgFile = (Button) view.findViewById(R.id.open_img_cfg_button);
         mBarcodeTest = (Button) view.findViewById(R.id.barcode_test_button);
         mUserGuideLink = (TextView) view.findViewById(R.id.exa_userguide_link);
@@ -225,7 +211,8 @@ public class SettingsAppImagerTab extends Fragment
                 //Toast.makeText(getActivity(), "BarcodeTst", Toast.LENGTH_SHORT).show();
             }
         });
-        enableItems(mApi.isConnected());
+
+        enableItems();
     }
 
 

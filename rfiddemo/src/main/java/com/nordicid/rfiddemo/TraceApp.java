@@ -1,16 +1,13 @@
 package com.nordicid.rfiddemo;
 
 import java.util.HashMap;
-import java.util.concurrent.RunnableFuture;
 
-import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.apptemplate.SubApp;
 import com.nordicid.controllers.InventoryController;
 import com.nordicid.controllers.TraceTagController;
 import com.nordicid.controllers.TraceTagController.TraceTagListener;
 import com.nordicid.controllers.TraceTagController.TracedTagInfo;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
-import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventIOChange;
 
@@ -19,11 +16,6 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -59,7 +51,7 @@ public class TraceApp extends SubApp {
 	private TraceTagController mTraceController;
 	private InventoryController mInventoryController;
 
-	ObjectAnimator animation = null;
+	ObjectAnimator mAnimator = null;
 	int mLastVal = 0;
 
 	public TraceApp() {
@@ -72,20 +64,20 @@ public class TraceApp extends SubApp {
 			public void traceTagEvent(TracedTagInfo data) {
 				int scaledRssi = data.scaledRssi;
 
-				mProgressBar.setProgress(scaledRssi);
+				//mProgressBar.setProgress(scaledRssi);
 				mPctText.setText(scaledRssi + "%");
 
-				if (animation != null) {
-					mLastVal = (int)animation.getAnimatedValue();
-					animation.cancel();
+				if (mAnimator != null) {
+					mLastVal = (int) mAnimator.getAnimatedValue();
+					mAnimator.cancel();
 				} else {
-					animation = ObjectAnimator.ofInt(mProgressBar, "progress", mLastVal, scaledRssi);
-					animation.setInterpolator(new LinearInterpolator());
+					mAnimator = ObjectAnimator.ofInt(mProgressBar, "progress", mLastVal, scaledRssi);
+					mAnimator.setInterpolator(new LinearInterpolator());
 				}
 
-				animation.setIntValues(mLastVal, scaledRssi);
-				animation.setDuration(300);
-				animation.start();
+				mAnimator.setIntValues(mLastVal, scaledRssi);
+				mAnimator.setDuration(300);
+				mAnimator.start();
 
 				mLastVal = scaledRssi;
 			}
@@ -163,7 +155,7 @@ public class TraceApp extends SubApp {
 			@Override
 			public void onClick(View v) {
 				try {
-					if (!mInventoryController.doSingleInventory()) {
+					if (!mInventoryController.doSingleInventory(true)) {
 						Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
 					}
 					else if (mInventoryController.getTagStorage().size() == 0) {
@@ -209,7 +201,7 @@ public class TraceApp extends SubApp {
 			mPctText.setLayoutParams(lp);
 		}
 		
-		mFoundTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc"}, new int[] {R.id.tagText});
+		mFoundTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 		mFoundTagsListView.setEmptyView(mEmptyListViewNotice);
 		mFoundTagsListView.setAdapter(mFoundTagsListViewAdapter);
 		mFoundTagsListView.setCacheColorHint(0);
@@ -238,6 +230,9 @@ public class TraceApp extends SubApp {
 			mLocatableEpcEditText.setText("Locate tag: " + mLocatableEpc);
 		else
 			mLocatableEpcEditText.setText(null);
+
+		mAnimator = ObjectAnimator.ofInt(mProgressBar, "progress", mLastVal, mLastVal);
+		mAnimator.setInterpolator(new LinearInterpolator());
 
 		if (mAutoStart) {
 			startTrace();

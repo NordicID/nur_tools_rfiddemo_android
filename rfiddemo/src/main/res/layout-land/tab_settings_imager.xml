@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent">
 
@@ -14,7 +13,7 @@
         android:paddingBottom="20dp"
         android:paddingLeft="15dp"
         android:paddingRight="15dp"
-        android:paddingTop="30dp">
+        android:paddingTop="20dp">
 
         <TextView
             android:id="@+id/textView"
@@ -34,13 +33,9 @@
             android:layout_height="wrap_content"
             android:text="Barcode test" />
 
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="162dp"
-            android:layout_weight="1" />
-
         <TextView
             android:id="@+id/link_header"
+            android:layout_marginTop="30dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="How to generate configuration file?" />
@@ -53,4 +48,4 @@
             android:autoText="false"
             android:text="https://github.com/NordicID/nur_exa_firmware/tree/master/doc" />
     </LinearLayout>
-</LinearLayout>
+</ScrollView>

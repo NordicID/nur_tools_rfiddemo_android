@@ -20,14 +20,16 @@ import com.nordicid.nurapi.NurEventTriggeredRead;
 
 import android.app.Activity;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 
-public class SettingsAppTabbed extends SubAppTabbed { 
+public class SettingsAppTabbed extends SubAppTabbed {
 	private static String mPreferredTab = "";
 
 	private SettingsAppSettingsTab mSettingsTab;
 	private SettingsAppTuneTab mSettingsTuneTab;
 	private SettingsAppHidTab mReaderSettings;
-	private SettingsAppImagerTab mImagerSettingsTab;
+	private static SettingsAppImagerTab mImagerSettingsTab;
+	private static SettingsAppInventoryTab mInventorySettingsTab;
 	private SettingsAppAuthTab mSettingsAuthTab;
     private SettingsAppTab mSettingsAppTab;
     private SettingsAppUpdatesTab mSettingsUpdateTab;
@@ -43,11 +45,6 @@ public class SettingsAppTabbed extends SubAppTabbed {
 	public static void setPreferredTab(String preferredTab)
 	{
 		mPreferredTab = preferredTab;
-	}
-
-	public void setImagerTab()
-	{
-		mPager.setCurrentItem(3);
 	}
 
 	@Override
@@ -78,6 +75,7 @@ public class SettingsAppTabbed extends SubAppTabbed {
 		mSettingsTuneTab = new SettingsAppTuneTab();
 		mReaderSettings = new SettingsAppHidTab();
 		mImagerSettingsTab = new SettingsAppImagerTab();
+		mInventorySettingsTab = new SettingsAppInventoryTab();
 		mSettingsAuthTab = new SettingsAppAuthTab();
         mSettingsAppTab = new SettingsAppTab();
         mSettingsUpdateTab = new SettingsAppUpdatesTab();
@@ -89,6 +87,7 @@ public class SettingsAppTabbed extends SubAppTabbed {
 					mSettingsTab.getNurApiListener().connectedEvent();
 					mReaderSettings.getNurApiListener().connectedEvent();
 					mImagerSettingsTab.getNurApiListener().connectedEvent();
+					mInventorySettingsTab.getNurApiListener().connectedEvent();
 				}
 			}
 
@@ -98,6 +97,7 @@ public class SettingsAppTabbed extends SubAppTabbed {
 					mSettingsTab.getNurApiListener().disconnectedEvent();
 					mReaderSettings.getNurApiListener().disconnectedEvent();
 					mImagerSettingsTab.getNurApiListener().disconnectedEvent();
+					mInventorySettingsTab.getNurApiListener().disconnectedEvent();
 				}
 			}
 
@@ -137,6 +137,9 @@ public class SettingsAppTabbed extends SubAppTabbed {
 		fragmentNames.add(getString(R.string.imager_settings));
 		fragments.add(mImagerSettingsTab);
 
+		fragmentNames.add("Inventory");
+		fragments.add(mInventorySettingsTab);
+
 		fragmentNames.add(getString(R.string.antenna_settings));
 		fragments.add(mSettingsTuneTab);
 
@@ -158,6 +161,7 @@ public class SettingsAppTabbed extends SubAppTabbed {
 		mSettingsTab.onVisibility(val);
 		mReaderSettings.onVisibility(val);
 		mImagerSettingsTab.onVisibility(val);
+		mInventorySettingsTab.onVisibility(val);
 	}
 	
 	//main layout

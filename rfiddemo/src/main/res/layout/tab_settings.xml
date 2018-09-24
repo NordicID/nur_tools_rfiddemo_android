@@ -77,7 +77,7 @@
             android:layout_height="wrap_content"
             android:text="@string/region_spinner" />
 
-        <Spinner
+        <com.nordicid.rfiddemo.MultiSelectionSpinner
             android:id="@+id/region_spinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
@@ -127,6 +127,76 @@
             android:layout_height="wrap_content" />
 
         <TextView
+            android:id="@+id/invfilter_min_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Inventory filter Min" />
+
+        <Spinner
+            android:id="@+id/invfilter_min_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/invfilter_max_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Inventory filter Max" />
+
+        <Spinner
+            android:id="@+id/invfilter_max_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/readfilter_min_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:text="Read filter Min" />
+
+        <Spinner
+            android:id="@+id/readfilter_min_spinner"
+            android:layout_width="match_parent"
+            android:visibility="gone"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/readfilter_max_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:text="Read filter Max" />
+
+        <Spinner
+            android:id="@+id/readfilter_max_spinner"
+            android:layout_width="match_parent"
+            android:visibility="gone"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/writefilter_min_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Write filter Min" />
+
+        <Spinner
+            android:id="@+id/writefilter_min_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/writefilter_max_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Write filter Max" />
+
+        <Spinner
+            android:id="@+id/writefilter_max_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
             android:id="@+id/autotune_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -137,20 +207,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/autotune_checkbox" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/regionLock_checkbox" />
-
-        <ToggleButton
-            android:id="@+id/regionLock_checkbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textOn="@string/unlock_region_button"
-            android:textOff="@string/lock_region_button"
-            android:text="@string/regionLock_checkbox"/>
-
 
     </LinearLayout>
 </ScrollView>

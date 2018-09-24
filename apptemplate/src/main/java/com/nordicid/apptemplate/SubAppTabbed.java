@@ -12,6 +12,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.util.Log;
 import android.view.View;
 
 public class SubAppTabbed extends SubApp {
@@ -52,6 +53,7 @@ public class SubAppTabbed extends SubApp {
 
 			String preferredTab;
 			preferredTab = onGetPreferredTab();
+
 			if(!preferredTab.isEmpty())
 			{
 				int tabIndex;
@@ -59,6 +61,7 @@ public class SubAppTabbed extends SubApp {
 
 				if (tabIndex >= 0) {
 					mPager.setCurrentItem(tabIndex);
+					Log.e("TAB","PreferredTab=" + preferredTab +  " index=" + tabIndex);
 				}
 			}
 

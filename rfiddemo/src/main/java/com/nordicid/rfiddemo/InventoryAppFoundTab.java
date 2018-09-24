@@ -21,6 +21,7 @@ public class InventoryAppFoundTab extends Fragment {
 
 	public SimpleAdapter mFoundTagsListViewAdapter;
 	private ListView mInventoryTagList;
+	private InventoryController mIC;
 
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -34,13 +35,12 @@ public class InventoryAppFoundTab extends Fragment {
 		super.onViewCreated(view, savedInstanceState);
 		
 		mInventoryTagList = (ListView) view.findViewById(R.id.tags_listview);
+		mIC = InventoryAppTabbed.getInstance().getInventoryController();
 
 		mFoundTagsListViewAdapter = new SimpleAdapter(
 				getActivity(),
-				InventoryAppTabbed.getInstance().getInventoryController().getListViewAdapterData(),
-				R.layout.taglist_row,
-				new String[] {"epc"}, 
-				new int[] {R.id.tagText});
+				mIC.getListViewAdapterData(),
+				R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 
 
 		mInventoryTagList.setEmptyView(view.findViewById(R.id.no_tags));
@@ -53,7 +53,7 @@ public class InventoryAppFoundTab extends Fragment {
 
 				@SuppressWarnings("unchecked")
 				final HashMap<String, String> selectedTagData = (HashMap<String, String>) mInventoryTagList.getItemAtPosition(position);
-				InventoryAppTabbed.getInstance().getInventoryController().showTagDialog(getActivity(), selectedTagData);
+				mIC.showTagDialog(getActivity(), selectedTagData);
 			}
 
 		});

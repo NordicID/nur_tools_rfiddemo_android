@@ -6,12 +6,14 @@ import android.app.Dialog;
 import android.bluetooth.BluetoothDevice;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
-import android.nfc.Tag;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.CountDownTimer;
 import android.os.Handler;
+import android.provider.OpenableColumns;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -54,7 +56,10 @@ import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -105,6 +110,7 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
     UpdateController mCurrentController;
     BthDFUController mDFUController;
     NURFirmwareController mNURAPPController;
+
     /** Listeners **/
     NurApiListener mNURControllerListener = null;
     BthDFUController.BthFirmwareControllerListener mDFUUpdateListener = new BthDFUController.BthFirmwareControllerListener() {
@@ -353,12 +359,20 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
 
     private void handleDFUSupported(){
         if(Main.getInstance().getAccessorySupported()){
-            //Check bootloader versio
-            if(mDFUController.isBldrUpdateAvailable())
-                mDFUBLDRRadio.setEnabled(true);
-            else mDFUBLDRRadio.setEnabled(false);
+            String manufacturer = Build.MANUFACTURER.toLowerCase();
+            if (manufacturer.contains("nordicid") || manufacturer.contains("nordic id")) {
+                //we have a integrated reader so hide DFU stuff
+                mDFUBLDRRadio.setEnabled(false);
+                mDFURadio.setEnabled(false);
+            }
+            else {
+                //Check bootloader versio
+                if (mDFUController.isBldrUpdateAvailable())
+                    mDFUBLDRRadio.setEnabled(true);
+                else mDFUBLDRRadio.setEnabled(false);
 
-            mDFURadio.setEnabled(true);
+                mDFURadio.setEnabled(true);
+            }
         }
     }
 
@@ -414,6 +428,7 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
     private void dfuScanFinished()
     {
         Log.i("DEVICESCAN", "dfuScanFinished; mUpdateRunning " + mUpdateRunning + "; mDfuExaFound " + mDfuExaFound.size());
+        BleScanner.getInstance().unregisterListener(this);
 
         if (!mUpdateRunning && mDfuExaFound.size() > 0)
         {
@@ -542,12 +557,12 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
             e.printStackTrace();
         }
         switch (view.getId()){
-            case R.id.btn_select_file:
+            case R.id.btn_select_file: //Local storage
                 Intent intent;
                 Intent filePicker;
-                intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                //intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                //intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent = new Intent(Intent.ACTION_GET_CONTENT);
+                //intent.addCategory(Intent.CATEGORY_OPENABLE);
                 if(mNURFWUpdate)
                     intent.setType("application/octet-stream");
                 else
@@ -562,7 +577,7 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
                     Main.getInstance().setDoNotDisconnectOnStop(false);
                 }
                 break;
-            case R.id.btn_download_file:
+            case R.id.btn_download_file: //NORDIC ID Servers
                 final Dialog dialog = new Dialog(Main.getInstance());
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
                 dialog.setContentView(R.layout.updates_list_view);
@@ -581,8 +596,14 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
                 });
                 /* */
                 ListAdapter customAdapter = new UpdateContainerListAdapter(Main.getInstance(),R.layout.update_container_list_item, ( mAppUpdate ) ? mCurrentController.fetchApplicationUpdates() : mCurrentController.fetchBldrUpdates());
-                updatesList.setAdapter(customAdapter);
-                dialog.show();
+
+                if(customAdapter.getCount() > 0) {
+                    updatesList.setAdapter(customAdapter);
+                    dialog.show();
+                }
+                else
+                    Toast.makeText(mOwner.getActivity(), "No updates available", Toast.LENGTH_LONG).show();
+
                 break;
             case R.id.btn_start_update:
                 mUpdateRetry = false;
@@ -602,11 +623,29 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
                      *  Save Application mode address to restore autoConnect
                      *  convert address to DFU mode and start
                      */
-                    mApplicationModeAddress = Main.getInstance().getNurAutoConnect().getAddress();
+                    /*
+                    try {
+                        if(mExt.getConfig().getAllowPairingState()) {
+                            mExt.clearPairingData(); //Pairing must clear
+                            Toast.makeText(mOwner.getActivity(), "Clear pairings..", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Toast.makeText(mOwner.getActivity(), ex.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                    */
+
+                    if (Main.getInstance().getNurAutoConnect() != null)
+                        mApplicationModeAddress = Main.getInstance().getNurAutoConnect().getAddress();
+                    else
+                        mApplicationModeAddress = null;
+
                     if (mApplicationModeAddress == null || mApplicationModeAddress.isEmpty()) {
                         Toast.makeText(mOwner.getActivity(), R.string.no_bluetooth_device, Toast.LENGTH_SHORT).show();
                         break;
                     }
+
                     if(!handleDFUUpdateStart()) {
                         Toast.makeText(Main.getInstance(),"Failed to restart device update cancelled",Toast.LENGTH_SHORT).show();
                         handleUpdateFinished();
@@ -616,24 +655,80 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
         }
     }
 
+
+    private String DownloadFromUri(Uri uri,String name)
+    {
+        String absPath="";
+
+        int cnt=0;
+
+        try {
+
+            InputStream sin = getActivity().getContentResolver().openInputStream(uri);
+            BufferedInputStream bis = new BufferedInputStream(sin, 1024);
+            File file = new File(Main.getInstance().getFilesDir(), name);
+
+            if (file.exists()) {
+                Log.i("URI", "File delete!");
+                file.delete();
+            }
+            file.createNewFile();
+            absPath=file.getAbsolutePath();
+
+            FileOutputStream fos = new FileOutputStream(file);
+            byte[] buffer = new byte[1024];
+
+            int len;
+            while ((len = sin.read(buffer)) != -1) {
+                cnt+=len;
+                fos.write(buffer, 0, len);
+            }
+
+            fos.flush();
+            fos.close();
+            sin.close();
+
+            Log.i("URI", "Path=" + absPath + " cnt=" + Integer.toString(cnt));
+        }
+        catch (Exception ex)
+        {
+            Toast.makeText(mOwner.getActivity(), ex.getMessage(), Toast.LENGTH_LONG).show();
+        }
+
+        return absPath;
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQ_FILE_OPEN && resultCode == Activity.RESULT_OK) {
             super.onActivityResult(requestCode, resultCode, data);
+
+            Uri uri = null;
+
             if (data != null) {
-                final String fullPath = getFileName(data.getDataString());
-                if (fullPath == null) {
+
+                uri = data.getData();
+                String name=getDisplayNameFromUri(uri);
+                String fullPath = DownloadFromUri(uri,name);
+                //Toast.makeText(mOwner.getActivity(), fullPath, Toast.LENGTH_SHORT).show();
+
+                if (fullPath.isEmpty()) {
                     mFileName.setText(R.string.not_available);
                     Toast.makeText(mOwner.getActivity(), R.string.file_check_failed, Toast.LENGTH_SHORT).show();
                     return;
                 }
+
                 handleFileSelection(fullPath);
+
             }
+
         }
     }
 
     private void handleFileSelection(String fullPath){
         String path = fullPath;
+        Log.i("URL","FULLPATH=" + path);
+
         if(mNURFWUpdate)
             if(!mNURAPPController.inspectSelectedFwFile(fullPath, mModuleType ,mAppUpdate ? NurApi.NUR_BINTYPE_L2APP : NurApi.NUR_BINTYPE_L2LOADER)){
                 path =null;
@@ -645,18 +740,27 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
         enableAll();
     }
 
-    private String getFileName(String strUri) {
-        String strFileName = null;
-        Uri uri;
-        String scheme;
-        uri = Uri.parse(strUri);
-        scheme = uri.getScheme();
-        if (scheme.equalsIgnoreCase("content")) {
-            String primStr;
-            primStr = uri.getLastPathSegment().replace("primary:", "");
-            strFileName = Environment.getExternalStorageDirectory() + "/" + primStr;
+
+    private String getDisplayNameFromUri(Uri uri) {
+
+        String ret="";
+
+        Cursor cursor = getActivity().getContentResolver()
+                .query(uri, null, null, null, null, null);
+
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+
+                // Note it's called "Display Name".  This is
+                // provider-specific, and might not necessarily be the file name.
+                ret = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                Log.i("META", "Display Name: " + ret);
+            }
+        } finally {
+            cursor.close();
         }
-        return strFileName;
+
+        return ret;
     }
 
     private void setTextFileName(){
@@ -666,7 +770,7 @@ public class SettingsAppUpdatesTab extends android.support.v4.app.Fragment imple
                     if(mCurrentController.isFileSet()){
                         String version = mNURAPPController.getFileVersion();
                         if (version != null)
-                            mFileName.setText("L2 " + ((mNURAPPController.isApplication()) ? "application" : "bootloader") + (", version: " + version));
+                            mFileName.setText(((mNURAPPController.isApplication()) ? "Application" : "Bootloader") + (", version: " + version));
                         else
                             mFileName.setText(R.string.not_available);
                     } else {

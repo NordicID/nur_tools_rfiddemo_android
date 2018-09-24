@@ -11,7 +11,35 @@
 	    android:paddingLeft="15dp"
 	    android:paddingRight="15dp"
 	    android:paddingTop="30dp"
-	    android:paddingBottom="20dp" >
+	    android:paddingBottom="20dp"
+		>
+
+			<TextView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="Nordic ID Smart Pair" />
+
+            <CheckBox
+                android:id="@+id/sp_showui"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="true"
+                android:text="Show Smart Pair connection user interface" />
+
+            <CheckBox
+                android:id="@+id/sp_autodiscon_exa51"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="true"
+                android:text="Disconnect automatically from Nordic ID EXA51e" />
+
+            <CheckBox
+                android:id="@+id/sp_sensitivity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:enabled="true"
+                android:text="Make connect more sensitive (helps with devices with insensitive bluetooth antenna)"
+                android:textAlignment="viewStart" />
 	    
 	        <TextView
 	            android:layout_width="wrap_content"
@@ -59,6 +87,8 @@
 				android:layout_height="wrap_content"
 				android:enabled="true"
 				android:text="Enable pairing (Note: device reboots after change this feature)" />
-	        	        
+
+
+
 	</LinearLayout>
 </ScrollView>

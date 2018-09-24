@@ -3,9 +3,16 @@
         <rotate android:fromDegrees="90" android:toDegrees="90">
 	        <shape android:useLevel="true"
 	               android:shape="ring"
-	               android:innerRadiusRatio="3.4"
-	               android:thicknessRatio="5.0">
-	            <solid android:color="@android:color/black" />
+	               android:innerRadiusRatio="2.5"
+	               android:thickness="4dp">
+	            <!-- <solid android:color="@android:color/black" />-->
+
+				<gradient
+					android:angle="0"
+					android:endColor="#c0392b"
+					android:startColor="#f4b744"
+					android:type="sweep"
+					android:useLevel="false" />
 	        </shape>
         </rotate>
     </item>

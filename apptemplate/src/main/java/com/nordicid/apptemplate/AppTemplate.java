@@ -1,6 +1,5 @@
 package com.nordicid.apptemplate;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -184,7 +183,11 @@ public class AppTemplate extends FragmentActivity {
 		}
 		@Override
 		public void IOChangeEvent(NurEventIOChange event) {
-			//Toast.makeText(AppTemplate.this, "IOCHG " + event.source + "; " + event.direction, Toast.LENGTH_SHORT).show();
+			//Log.d(TAG, "IOCHG " + event.source + "; " + event.direction);
+
+			if (mAppListener != null)
+				mAppListener.IOChangeEvent(event);
+
 			if (mCurrentListener != null)
 				mCurrentListener.IOChangeEvent(event);
 		}
@@ -224,12 +227,13 @@ public class AppTemplate extends FragmentActivity {
 	 * if back button pressed once. @see doubleOnBackPressedExit
 	 */
 	private boolean backPressedOnce;
-	private boolean applicationPaused = true;
 	private boolean showMenuAnimation;
+
+	protected boolean mApplicationPaused = true;
 
 	public boolean isApplicationPaused()
 	{
-		return applicationPaused;
+		return mApplicationPaused;
 	}
 	
 	/**
@@ -263,10 +267,6 @@ public class AppTemplate extends FragmentActivity {
 			}
 		}
 
-		super.onCreate(savedInstanceState);
-		//int screenLayout = 0;
-		//int layoutMask = 0;
-		
 		mApi = new NurApi();
 		//mApi.setLogLevel(mApi.getLogLevel() | NurApi.LOG_VERBOSE | NurApi.LOG_DATA);
 		mApi.setLogToStdout(true);
@@ -281,7 +281,7 @@ public class AppTemplate extends FragmentActivity {
 		});
 		
 		mApi.setListener(mNurApiListener);
-		
+
 		//Application theme and typeface will be changed
 		setTheme(getApplicationTheme());
 		TypefaceOverrider.setDefaultFont(getApplicationContext(), "MONOSPACE", getPahtToTypeface());
@@ -323,6 +323,8 @@ public class AppTemplate extends FragmentActivity {
 				onConfigurationChanged(getResources().getConfiguration());	
 			}
 		}
+
+		super.onCreate(savedInstanceState);
 	}
 
 	@Override
@@ -474,7 +476,7 @@ public class AppTemplate extends FragmentActivity {
 			}
 		}
 
-		if (!applicationPaused) {
+		if (!mApplicationPaused) {
 			setFragments(true);
 		}
 		if (mSubAppList.getCurrentOpenSubApp() == null) {
@@ -797,31 +799,33 @@ public class AppTemplate extends FragmentActivity {
 	@Override
 	protected void onResumeFragments() {
 
-		Log.d(TAG, "onResumeFragments() applicationPaused " + applicationPaused);
+		Log.d(TAG, "onResumeFragments() mApplicationPaused " + mApplicationPaused);
 
 		super.onResumeFragments();
 		setFragments(true);
 		
-		applicationPaused = false;
+		mApplicationPaused = false;
 	}
 	
 	@Override
 	protected void onPause() {
-		Log.d(TAG, "onPause() applicationPaused " + applicationPaused);
+		Log.d(TAG, "onPause() mApplicationPaused " + mApplicationPaused);
 		super.onPause();
-		applicationPaused = true;
+		mApplicationPaused = true;
 	}
 	
 	@Override
 	protected void onResume() {
-		Log.d(TAG, "onResume() applicationPaused " + applicationPaused);
+		Log.d(TAG, "onResume() mApplicationPaused " + mApplicationPaused);
 		super.onResume();
 	}
 	
 	@Override
 	protected void onStop() {
-		Log.d(TAG, "onStop() applicationPaused " + applicationPaused);
+		Log.d(TAG, "onStop() mApplicationPaused " + mApplicationPaused);
 		super.onStop();
+
+		mApplicationPaused = true;
 		
 		if (mApi != null) 
 		{
@@ -837,7 +841,7 @@ public class AppTemplate extends FragmentActivity {
 	
 	@Override
 	protected void onDestroy() {
-		Log.d(TAG, "onDestroy() applicationPaused " + applicationPaused);
+		Log.d(TAG, "onDestroy() mApplicationPaused " + mApplicationPaused);
 		super.onDestroy();
 
 		mExitingApplication = true;

@@ -50,18 +50,32 @@
             android:layout_height="wrap_content" />
 
         <Button
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Start BLE test"
             android:id="@+id/tm_start_test"
             android:layout_gravity="center_horizontal" />
 
         <Button
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Start NUR only test"
             android:id="@+id/tm_start_nur_test"
             android:layout_gravity="center_horizontal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/regionLock_checkbox" />
+
+        <ToggleButton
+            android:id="@+id/regionLock_checkbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textOn="@string/unlock_region_button"
+            android:textOff="@string/lock_region_button"
+            android:text="@string/regionLock_checkbox"/>
+
     </LinearLayout>
 </ScrollView>
 

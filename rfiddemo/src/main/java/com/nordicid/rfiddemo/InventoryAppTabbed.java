@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -99,9 +100,10 @@ public class InventoryAppTabbed extends SubAppTabbed {
 				mFoundTab.mFoundTagsListViewAdapter.notifyDataSetChanged();
 			
 			mLastUpdateTagCount = mInventoryController.getTagStorage().size();
-			
-			if (mInventoryController.isInventoryRunning())
-				mHandler.postDelayed(mTimeUpdate, 250);				
+
+			if (mInventoryController.isInventoryRunning()) {
+				mHandler.postDelayed(mTimeUpdate, 250);
+			}
 		}
 	};
 	
@@ -113,7 +115,15 @@ public class InventoryAppTabbed extends SubAppTabbed {
 
 			@SuppressWarnings("unchecked")
 			@Override
-			public void tagFound(NurTag tag, boolean isNew) { }
+			public void tagFound(NurTag tag, boolean isNew) {
+
+				mFoundTab.mFoundTagsListViewAdapter.notifyDataSetChanged();
+
+				if (isNew) {
+					//mFoundTab.mFoundTagsListViewAdapter.notifyDataSetChanged();
+					mLastUpdateTagCount = mInventoryController.getTagStorage().size();
+				}
+			}
 
 			@Override
 			public void inventoryRoundDone(NurTagStorage storage, int newTagsOffset, int newTagsAdded) { }
@@ -133,7 +143,7 @@ public class InventoryAppTabbed extends SubAppTabbed {
 				if (mInventoryController.isInventoryRunning()) {
 					keepScreenOn(true);
 					mStartStopInventory.setText(getString(R.string.stop));
-					clearReadings();
+					//clearReadings();
 					mHandler.postDelayed(mTimeUpdate, 250);
 				}
 				else {
@@ -145,12 +155,21 @@ public class InventoryAppTabbed extends SubAppTabbed {
 			@Override
 			public void IOChangeEvent(NurEventIOChange event) {
 				// Handle BLE trigger
+
+				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE && event.direction == 1)
+				{
+					//Trigger down
+					if (!mInventoryController.isInventoryRunning())
+						startInventory();
+					else stopInventory();
+				}
 				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE && event.direction == 0)
 				{
-					if (mInventoryController.isInventoryRunning())
-						stopInventory();
-					else {
-						startInventory();
+					//Trigger released
+					if (mInventoryController.isInventoryRunning()) {
+
+						if(mInventoryController.mTriggerDown)
+						 stopInventory();
 					}
 				}
 			}
@@ -179,12 +198,16 @@ public class InventoryAppTabbed extends SubAppTabbed {
 
 		super.onViewCreated(view, savedInstanceState);
 	}
-	
+
 	public void stopInventory() {
 		mInventoryController.stopInventory();
 	}
 	
 	public void startInventory() {
+
+		//Going to start inventory. Let's take inventory settings configurated by user.
+		mInventoryController.LoadInventorySettings();
+
 		try {
 			if (!mInventoryController.startContinuousInventory()) {
 				Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();

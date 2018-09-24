@@ -82,7 +82,7 @@ public class WriteApp extends SubApp {
 		mEmptyView = (RelativeLayout) view.findViewById(R.id.listview_empty);
 		
 		//sets the adapter for listview
-		mTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc"}, new int[] {R.id.tagText});
+		mTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 		mTagsListView.setAdapter(mTagsListViewAdapter);
 		mTagsListView.setEmptyView(mEmptyView);
 		mTagsListView.setCacheColorHint(0);
@@ -102,7 +102,7 @@ public class WriteApp extends SubApp {
 			@Override
 			public void onClick(View v) {
 				try {
-					if (!mInventoryController.doSingleInventory()) {
+					if (!mInventoryController.doSingleInventory(true)) {
 						Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
 					}
 					else if (mInventoryController.getTagStorage().size() == 0) {

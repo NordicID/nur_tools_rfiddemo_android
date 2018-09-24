@@ -37,8 +37,8 @@
     <string name="no_reader_attached">تگ خوان وجود ندارد</string>
     <string name="attached_reader_info">مشخصات دستگاه تگ خوان:</string>
     <string name="about_dialog_model">Model:</string>
-    <string name="about_dialog_serial">Serial:</string>
-    <string name="about_dialog_firmware">Firmware:</string>
+    <string name="about_dialog_serial">NUR serial number:</string>
+    <string name="about_dialog_device_serial">Device serial number:</string>
     <string name="about_dialog_bootloader">Bootloader:</string>
     <string name="about_dialog_accessory">Accessory:</string>
     <string name="about_dialog_nurapi">NurApi version:</string>

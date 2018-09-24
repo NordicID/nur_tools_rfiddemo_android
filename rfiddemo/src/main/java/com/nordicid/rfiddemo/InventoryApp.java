@@ -90,7 +90,13 @@ public class InventoryApp extends SubApp {
         mInventoryController.setListener(new InventoryControllerListener() {
 			@SuppressWarnings("unchecked")
 			@Override
-			public void tagFound(NurTag tag, boolean isNew) { }
+			public void tagFound(NurTag tag, boolean isNew) {
+				mFoundTagsListViewAdapter.notifyDataSetChanged();
+				if (isNew) {
+					//mFoundTagsListViewAdapter.notifyDataSetChanged();
+					mLastUpdateTagCount = mInventoryController.getTagStorage().size();
+				}
+			}
 
 			@Override
 			public void inventoryRoundDone(NurTagStorage storage, int newTagsOffset, int newTagsAdded) { }
@@ -108,7 +114,7 @@ public class InventoryApp extends SubApp {
 				if (mInventoryController.isInventoryRunning()) {
 					keepScreenOn(true);
 					mStartStopInventory.setText(getString(R.string.stop));
-					clearReadings();
+					//clearReadings();
 					mHandler.postDelayed(mTimeUpdate, 250);
 				}
 				else {
@@ -196,8 +202,8 @@ public class InventoryApp extends SubApp {
 											getActivity(), 
 											mInventoryController.getListViewAdapterData(),
 											R.layout.taglist_row,
-											new String[] { "epc" },
-											new int[] { R.id.tagText });
+											new String[] { "epc","rssi" },
+											new int[] { R.id.tagText, R.id.rssiText });
 		
 		//empty view when no tags in list
 		mFoundTagsListView.setEmptyView(mView.findViewById(R.id.no_tags));
@@ -208,9 +214,8 @@ public class InventoryApp extends SubApp {
 			@SuppressWarnings("unchecked")
 			@Override
 			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-				
 				//if tag clicked
-				HashMap<String, String> selectedTagData =(HashMap<String, String>) mFoundTagsListView.getItemAtPosition(position);
+				HashMap<String, String> selectedTagData = (HashMap<String, String>) mFoundTagsListView.getItemAtPosition(position);
 				mInventoryController.showTagDialog(getActivity(), selectedTagData);
 			}
 			

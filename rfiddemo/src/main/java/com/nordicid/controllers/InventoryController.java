@@ -3,6 +3,8 @@ package com.nordicid.controllers;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
@@ -13,7 +15,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nordicid.apptemplate.AppTemplate;
-import com.nordicid.nurapi.NurApi;
+import com.nordicid.helpers.CompatFileProvider;
+import com.nordicid.nurapi.*;
+
+/*
+import com.nordicid.nurapi.NurCmdDevCaps;
 import com.nordicid.nurapi.NurApiErrors;
 import com.nordicid.nurapi.NurApiException;
 import com.nordicid.nurapi.NurApiListener;
@@ -30,9 +36,15 @@ import com.nordicid.nurapi.NurEventTagTrackingChange;
 import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
+import com.nordicid.nurapi.NurInventoryExtended;
+import com.nordicid.nurapi.NurRespInventory;
+import com.nordicid.nurapi.NurIRConfig;
 import com.nordicid.nurapi.NurTag;
 import com.nordicid.nurapi.NurTagStorage;
+*/
+
 import com.nordicid.rfiddemo.Beeper;
+import com.nordicid.rfiddemo.Main;
 import com.nordicid.rfiddemo.R;
 import com.nordicid.rfiddemo.TraceApp;
 
@@ -148,6 +160,12 @@ public class InventoryController {
 	private Thread mBeeperThread = null;
 	private NurTagStorage mTagStorage = new NurTagStorage();
 
+	//Inventory settings
+	private int mDataWords;
+	public int mInvType; //0=epc 1=epc+tid 2=epc+user
+	private boolean mExport;
+	public boolean mTriggerDown;
+
 	private ArrayList<HashMap<String, String>> mListViewAdapterData = new ArrayList<HashMap<String,String>>();
 
 	public NurApiListener getNurApiListener()
@@ -236,6 +254,7 @@ public class InventoryController {
 
 	SimpleDateFormat dateFormatter = new SimpleDateFormat("dd/MM/yyyy kk:mm:ss");
 
+	@SuppressWarnings("unchecked")
 	void handleInventoryResult()
 	{
 		synchronized (mApi.getStorage())
@@ -244,6 +263,7 @@ public class InventoryController {
 			NurTagStorage tagStorage = mApi.getStorage();
 			int curUniqueCount = mTagStorage.size();
 
+			//Log.i("INV","storageSize=" + Integer.toString(tagStorage.size()));
 			// Add tags tp internal tag storage
 			for (int i = 0; i < tagStorage.size(); i++) {
 
@@ -261,17 +281,25 @@ public class InventoryController {
 					tmp.put("foundpercent", "100");
 					tmp.put("firstseentime", dateFormatter.format(new Date()));
 					tmp.put("lastseentime", dateFormatter.format(new Date()));
+
+					if(mInvType > 0) {
+						byte[] irdata = tag.getIrData();
+						if(irdata != null)
+							tmp.put("irdata", NurApi.byteArrayToHexString(irdata));
+						else tmp.put("irdata", "");
+					}
+
 					tag.setUserdata(tmp);
 					mListViewAdapterData.add(tmp);
 
 					if (mInventoryListener != null)
 						mInventoryListener.tagFound(tag, true);
+
 				}
 				else
 				{
-					tag = mTagStorage.getTag(tag.getEpc());
-
 					// Update
+					tag = mTagStorage.getTag(tag.getEpc());
 					tmp = (HashMap<String, String>) tag.getUserdata();
 					tmp.put("rssi", Integer.toString(tag.getRssi()));
 					tmp.put("timestamp", Integer.toString(tag.getTimestamp()));
@@ -279,6 +307,13 @@ public class InventoryController {
 					tmp.put("found", Integer.toString(tag.getUpdateCount()));
 					tmp.put("foundpercent", Integer.toString((int) (((double) tag.getUpdateCount()) / (double) mStats.getInventoryRounds() * 100)));
 					tmp.put("lastseentime", dateFormatter.format(new Date()));
+
+					if(mInvType > 0) {
+						byte[] irdata = tag.getIrData();
+						if(irdata != null)
+							tmp.put("irdata", NurApi.byteArrayToHexString(irdata));
+						else tmp.put("irdata", "");
+					}
 
 					if (mInventoryListener != null)
 						mInventoryListener.tagFound(tag, false);
@@ -298,10 +333,22 @@ public class InventoryController {
 				if (mInventoryListener != null)
 					mInventoryListener.inventoryRoundDone(mTagStorage, curUniqueCount, mAddedUnique);
 			}
+
 		}
 	}
 
-	public boolean doSingleInventory() throws Exception {
+	public void LoadInventorySettings()
+	{
+		SharedPreferences settings = Main.getApplicationPrefences();
+
+		mDataWords = settings.getInt("DataLength",2);
+		mInvType = settings.getInt("InvType",0);
+
+		mExport = settings.getBoolean("ExportBool",false);
+		mTriggerDown = settings.getBoolean("TriggerDown",false);
+	}
+
+	public boolean doSingleInventory(Boolean clearReadings) throws Exception {
 		if (!mApi.isConnected())
 			return false;
 
@@ -310,7 +357,8 @@ public class InventoryController {
 			mApi.setSetupSelectedAntenna(NurApi.ANTENNAID_AUTOSELECT);
 
 		// Clear old readings
-		clearInventoryReadings();
+		if(clearReadings)
+			clearInventoryReadings();
 		// Perform inventory
 		try {
 			mApi.inventory();
@@ -319,6 +367,7 @@ public class InventoryController {
 		}
 		catch (NurApiException ex)
 		{
+			Log.i("INV", ex.getMessage());
 			// Did not get any tags
 			if (ex.error == NurApiErrors.NO_TAG)
 				return true;
@@ -329,6 +378,32 @@ public class InventoryController {
 		handleInventoryResult();
 
 		return true;
+	}
+
+	private void PrepareDataInventory()
+	{
+		NurIRConfig ir = new NurIRConfig();
+
+		ir.IsRunning = true;
+		ir.irType = NurApi.IRTYPE_EPCDATA;
+
+		if(mInvType == 1)
+			ir.irBank = NurApi.BANK_TID;
+		else if(mInvType == 2)
+			ir.irBank = NurApi.BANK_USER;
+		else
+			ir.IsRunning = false;
+
+		ir.irAddr = 0;
+		ir.irWordCount = mDataWords;
+
+		try {
+			mApi.setIRConfig(ir);
+		}
+		catch (Exception ex)
+		{
+			ex.printStackTrace();
+		}
 	}
 
 	public boolean startContinuousInventory() throws Exception {
@@ -344,9 +419,10 @@ public class InventoryController {
 		if (mApi.getSetupSelectedAntenna() != NurApi.ANTENNAID_AUTOSELECT)
 			mApi.setSetupSelectedAntenna(NurApi.ANTENNAID_AUTOSELECT);
 
-		// Start reading
+		PrepareDataInventory();
+
+        mInventoryRunning = true;
 		mApi.startInventoryStream();
-		mInventoryRunning = true;
 
 		// Clear & start stats
 		mStats.clear();
@@ -367,7 +443,7 @@ public class InventoryController {
 	public boolean isInventoryRunning() {
 		return mInventoryRunning;
 	}
-	
+
 	public void stopInventory() {
 		try {
 			mInventoryRunning = false;
@@ -375,6 +451,9 @@ public class InventoryController {
 			// Stop reading
 			if (mApi.isConnected()) {
 				mApi.stopInventoryStream();
+				NurIRConfig	ir = new NurIRConfig();
+				ir.IsRunning = false;
+				mApi.setIRConfig(ir);
 				mApi.setSetupOpFlags(mApi.getSetupOpFlags() & ~NurApi.OPFLAGS_INVSTREAM_ZEROS);
 			}
 
@@ -396,8 +475,74 @@ public class InventoryController {
 	public void setListener(InventoryControllerListener l) {
 		mInventoryListener = l;
 	}
-	
+
+	private void ExportReadings()
+	{
+		final ArrayList<HashMap<String, String>> tags = mListViewAdapterData;
+
+		try {
+
+			String postfix = "";
+			if (mApi.isConnected())
+			{
+				postfix = mApi.getReaderInfo().altSerial;
+				if (postfix.length() == 0) {
+					postfix = mApi.getReaderInfo().serial;
+				}
+				if (postfix.length() != 0) {
+					postfix += "_";
+				}
+			}
+
+			String filename = "epc_export_";
+			filename += postfix;
+			filename += new SimpleDateFormat("ddMMyyyykkmmss").format(new Date());
+			filename += ".csv";
+
+			File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+			//File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+			//path.mkdirs();
+
+			File outputFile = new File(path, filename);
+			outputFile.createNewFile();
+
+			FileWriter fileWriter = new FileWriter(outputFile, false);
+			if(mInvType == 0)
+				fileWriter.write("firstseen;lastseen;epc;rssi\n");
+			else
+				fileWriter.write("firstseen;lastseen;epc;data;rssi\n");
+
+
+			for (HashMap<String, String> tag : tags)
+			{
+				fileWriter.append(tag.get("firstseentime") + ";");
+				fileWriter.append(tag.get("lastseentime") + ";");
+				fileWriter.append(tag.get("epc") + ";");
+				if(mInvType > 0)
+					fileWriter.append(tag.get("irdata") + ";");
+
+				fileWriter.append(tag.get("rssi") + "\n");
+			}
+			fileWriter.close();
+
+
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+
+	}
+
+
 	public void clearInventoryReadings() {
+
+		if(mExport)
+		{
+			//Need to export readings first
+			ExportReadings();
+		}
+
 		mAddedUnique = 0;
 		mApi.getStorage().clear();
 		mTagStorage.clear();
@@ -455,6 +600,13 @@ public class InventoryController {
 
 		final TextView epcTextView = (TextView) tagDialogLayout.findViewById(R.id.selected_tag_epc);
 		epcTextView.setText(ctx.getString(R.string.dialog_epc)+" "+tagData.get("epc"));
+
+		final TextView dataTextView = (TextView) tagDialogLayout.findViewById(R.id.selected_tag_data);
+		if(mInvType == 1)
+			dataTextView.setText(ctx.getString(R.string.dialog_tid)+" " + tagData.get("irdata"));
+		else if(mInvType == 2)
+			dataTextView.setText(ctx.getString(R.string.dialog_user)+" " + tagData.get("irdata"));
+		else dataTextView.setText("");
 
 		final TextView rssiTextView = (TextView) tagDialogLayout.findViewById(R.id.selected_tag_rssi);
 		rssiTextView.setText(ctx.getString(R.string.dialog_rssi)+" "+tagData.get("rssi"));
@@ -538,12 +690,15 @@ public class InventoryController {
 					}
 					fileWriter.close();
 
+					Uri providerUri = CompatFileProvider.getUriForFile(_ctx, "com.nordicid.fileprovider.public", outputFile);
+
 					Log.i("outputFile", "= " + Uri.fromFile(outputFile));
+					Log.i("providerUri", "= " + providerUri);
 
 					Intent intent2 = new Intent();
 					intent2.setAction(Intent.ACTION_SEND);
 					intent2.setType("text/plain");
-					intent2.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(outputFile));
+					intent2.putExtra(Intent.EXTRA_STREAM, providerUri);
 					_ctx.startActivity(Intent.createChooser(intent2, _ctx.getString(R.string.share_via)));
 
 				} catch (Exception e) {

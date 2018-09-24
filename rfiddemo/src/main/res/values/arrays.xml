@@ -135,4 +135,59 @@
         <item>Carrier On</item>
     </string-array>
 
+    <string-array name="rssi_entries">
+        <item>Disabled</item>
+        <item>-2 dBm</item>
+        <item>-4 dBm</item>
+        <item>-6 dBm</item>
+        <item>-8 dBm</item>
+        <item>-10 dBm</item>
+        <item>-12 dBm</item>
+        <item>-14 dBm</item>
+        <item>-16 dBm</item>
+        <item>-18 dBm</item>
+        <item>-20 dBm</item>
+        <item>-22 dBm</item>
+        <item>-24 dBm</item>
+        <item>-26 dBm</item>
+        <item>-28 dBm</item>
+        <item>-30 dBm</item>
+        <item>-32 dBm</item>
+        <item>-34 dBm</item>
+        <item>-36 dBm</item>
+        <item>-38 dBm</item>
+        <item>-40 dBm</item>
+        <item>-42 dBm</item>
+        <item>-44 dBm</item>
+        <item>-46 dBm</item>
+        <item>-48 dBm</item>
+        <item>-50 dBm</item>
+        <item>-52 dBm</item>
+        <item>-54 dBm</item>
+        <item>-56 dBm</item>
+        <item>-58 dBm</item>
+        <item>-60 dBm</item>
+        <item>-62 dBm</item>
+        <item>-64 dBm</item>
+        <item>-66 dBm</item>
+        <item>-68 dBm</item>
+        <item>-70 dBm</item>
+        <item>-72 dBm</item>
+        <item>-74 dBm</item>
+        <item>-76 dBm</item>
+        <item>-78 dBm</item>
+        <item>-80 dBm</item>
+        <item>-82 dBm</item>
+        <item>-84 dBm</item>
+        <item>-86 dBm</item>
+        <item>-88 dBm</item>
+        <item>-90 dBm</item>
+    </string-array>
+
+    <string-array name="inv_type_entries">
+        <item>EPC</item>
+        <item>EPC+TID</item>
+        <item>EPC+USER</item>
+    </string-array>
+
 </resources>

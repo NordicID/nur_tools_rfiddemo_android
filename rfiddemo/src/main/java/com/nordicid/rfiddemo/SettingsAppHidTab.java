@@ -1,5 +1,6 @@
 package com.nordicid.rfiddemo;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -31,6 +32,10 @@ import com.nordicid.nurapi.NurEventTagTrackingChange;
 import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
+import com.nordicid.nurapi.NurSmartPairSupport;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class SettingsAppHidTab extends Fragment {
 	SettingsAppTabbed mOwner;
@@ -43,7 +48,11 @@ public class SettingsAppHidTab extends Fragment {
 	CheckBox mHidBarcodeCheckBox;
 	CheckBox mHidRFIDCheckBox;
 	CheckBox mWirelessChargingCheckBox;
-	CheckBox mAllowPairingCheckBox;
+    CheckBox mAllowPairingCheckBox;
+
+	CheckBox mSpShowUiCheckBox;
+	CheckBox mSpAutodisconExa51CheckBox;
+    CheckBox mSpSensitivityCheckBox;
 
 	TextView mWirelessChargingLabel;
 	
@@ -126,7 +135,7 @@ public class SettingsAppHidTab extends Fragment {
 		mAllowPairingCheckBox.setEnabled(v);
 	}
 
-	private String removeSpecificChars(String originalstring ,String removecharacterstring)
+	private String removeSpecificChars(String originalstring, String removecharacterstring)
 	{
 		char[] orgchararray=originalstring.toCharArray();
 		char[] removechararray=removecharacterstring.toCharArray();
@@ -154,56 +163,98 @@ public class SettingsAppHidTab extends Fragment {
 		return new String(orgchararray,0,end);
 	}
 
-	private void readCurrentSetup() 
+	private void enableListeners(boolean enable)
 	{
-		mHidBarcodeCheckBox.setOnCheckedChangeListener(null);
-		mHidRFIDCheckBox.setOnCheckedChangeListener(null);
-		mWirelessChargingCheckBox.setOnCheckedChangeListener(null);
-		mAllowPairingCheckBox.setOnCheckedChangeListener(null);
+		if (enable) {
+			mHidBarcodeCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
+			mHidRFIDCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
+			mWirelessChargingCheckBox.setOnCheckedChangeListener(mWirelessChargingChangeListener);
+			mAllowPairingCheckBox.setOnCheckedChangeListener(mAllowPairingChangeListener);
 
-		if (!AppTemplate.getAppTemplate().getAccessorySupported()) {
-			enableItems(false);
-			return;
+			mSpShowUiCheckBox.setOnCheckedChangeListener(mSpShowUiChangeListener);
+			mSpAutodisconExa51CheckBox.setOnCheckedChangeListener(mSpAutodisconExa51ChangeListener);
+			mSpSensitivityCheckBox.setOnCheckedChangeListener(mSpSensitivityChangeListener);
+		} else {
+			mHidBarcodeCheckBox.setOnCheckedChangeListener(null);
+			mHidRFIDCheckBox.setOnCheckedChangeListener(null);
+			mWirelessChargingCheckBox.setOnCheckedChangeListener(null);
+			mAllowPairingCheckBox.setOnCheckedChangeListener(null);
+
+			mSpShowUiCheckBox.setOnCheckedChangeListener(null);
+			mSpAutodisconExa51CheckBox.setOnCheckedChangeListener(null);
+			mSpSensitivityCheckBox.setOnCheckedChangeListener(null);
 		}
+	}
 
-		NurAccessoryConfig cfg;
-		try {
-			cfg = mExt.getConfig();
-			NurAccessoryVersionInfo info = mExt.getFwVersion();
-			String appver=removeSpecificChars(info.getApplicationVersion(),".");
+	private void readCurrentSetup() {
+		enableListeners(false);
 
-			int ver = Integer.parseInt(appver);
-			if(ver >= 221)
-			{
-				mAllowPairingCheckBox.setEnabled(true);
-				Log.e("Acc","Enable");
+		if (mApi.isConnected() && AppTemplate.getAppTemplate().getAccessorySupported())
+		{
+			NurAccessoryConfig cfg;
+			try {
+				cfg = mExt.getConfig();
+				NurAccessoryVersionInfo info = mExt.getFwVersion();
+				String appver = removeSpecificChars(info.getApplicationVersion(), ".");
+
+				int ver = Integer.parseInt(appver);
+				if (ver >= 221) {
+					mAllowPairingCheckBox.setEnabled(true);
+				} else {
+					mAllowPairingCheckBox.setEnabled(false);
+				}
+
+				// Disable HID from devices w/ integrated reader module
+				String addr = Main.getInstance().getNurAutoConnect().getAddress();
+				if (addr != null && addr.equals("integrated_reader")) {
+					mHidBarcodeCheckBox.setEnabled(false);
+					mHidRFIDCheckBox.setEnabled(false);
+				}
+
+				mHidBarcodeCheckBox.setChecked(cfg.getHidBarCode());
+				mHidRFIDCheckBox.setChecked(cfg.getHidRFID());
+				mWirelessChargingCheckBox.setEnabled(cfg.hasWirelessCharging());
+				mAllowPairingCheckBox.setChecked(cfg.getAllowPairingState());
+
+				enableItems(true);
 			}
-			else
-			{
-				mAllowPairingCheckBox.setEnabled(false);
-				Log.e("Acc","Disable");
+			catch (Exception e) {
+				e.printStackTrace();
+				enableItems(false);
 			}
 
-
-		} catch (Exception e) {
-			e.printStackTrace();
+		} else {
 			enableItems(false);
-			return;
 		}
+
+		// Setup smart pair settings
+		SharedPreferences pref = Main.getApplicationPrefences();
+		mSpShowUiCheckBox.setChecked(pref.getBoolean("SmartPairShowUi", true));
 
 		try {
-			mHidBarcodeCheckBox.setChecked(cfg.getHidBarCode());
-			mHidRFIDCheckBox.setChecked(cfg.getHidRFID());
-			mWirelessChargingCheckBox.setEnabled(cfg.hasWirelessCharging());
-			mAllowPairingCheckBox.setChecked(cfg.getAllowPairingState());
-		} catch (Exception e) {
+			JSONObject settings = new JSONObject(pref.getString("SmartPairSettings", "{}"));
+
+			try {
+				// JSON: {"AutoDisconnectMap":{"EXA51":<true|false>}}
+				mSpAutodisconExa51CheckBox.setChecked(settings.getJSONObject("AutoDisconnectMap").getBoolean("EXA51"));
+			} catch (Exception ex) { }
+
+			try {
+				// JSON: {"ConnThresholdAdjust":<0|-10>}
+				mSpSensitivityCheckBox.setChecked(settings.getInt("ConnThresholdAdjust") == 0 ? false : true);
+			} catch (Exception ex) { }
+
+		} catch (JSONException e) {
 			e.printStackTrace();
 		}
 
-		mHidBarcodeCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
-		mHidRFIDCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
-		mWirelessChargingCheckBox.setOnCheckedChangeListener(mWirelessChargingChangeListener);
-		mAllowPairingCheckBox.setOnCheckedChangeListener(mAllowPairingChangeListener);
+		// Enable listeners
+		mHidBarcodeCheckBox.post(new Runnable() {
+			@Override
+			public void run() {
+				enableListeners(true);
+			}
+		});
 	}
 	
 	void setNewHidConfig()
@@ -215,9 +266,8 @@ public class SettingsAppHidTab extends Fragment {
 			mExt.setConfig(cfg);
 			readCurrentSetup();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-			enableItems(false);
+			Toast.makeText(AppTemplate.getAppTemplate(),"Operation failed", Toast.LENGTH_SHORT).show();
 		}
 	}
 
@@ -228,13 +278,21 @@ public class SettingsAppHidTab extends Fragment {
 			cfg.setAllowPairingState(mAllowPairingCheckBox.isChecked());
 			mExt.setConfig(cfg);
 			readCurrentSetup();
+
 			Toast.makeText(AppTemplate.getAppTemplate(),"Rebooting device..", Toast.LENGTH_SHORT).show();
 			mExt.restartBLEModule();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-			enableItems(false);
+			Toast.makeText(AppTemplate.getAppTemplate(),"Operation failed", Toast.LENGTH_SHORT).show();
 		}
+	}
+
+	void storeSmartPairSettings()
+	{
+		SharedPreferences.Editor editor = Main.getApplicationPrefences().edit();
+		String settingsStr = NurSmartPairSupport.getSettingsString();
+		editor.putString("SmartPairSettings", settingsStr);
+		editor.apply();
 	}
 	
 	@Override
@@ -257,8 +315,6 @@ public class SettingsAppHidTab extends Fragment {
 			setNewAllowPairingConfig();
 		}
 	};
-
-
 
 	OnCheckedChangeListener mWirelessChargingChangeListener = new OnCheckedChangeListener() {
 		@Override
@@ -283,15 +339,63 @@ public class SettingsAppHidTab extends Fragment {
 				mWirelessChargingCheckBox.setOnCheckedChangeListener(null);
 				mWirelessChargingCheckBox.setChecked(mExt.isWirelessChargingOn());
 				Toast.makeText(AppTemplate.getAppTemplate(),msg, Toast.LENGTH_SHORT).show();
-			} catch (Exception e)
+			}
+			catch (Exception e)
 			{
-				// TODO
+				e.printStackTrace();
+				Toast.makeText(AppTemplate.getAppTemplate(),"Operation failed", Toast.LENGTH_SHORT).show();
 			}
 			mWirelessChargingCheckBox.setOnCheckedChangeListener(mWirelessChargingChangeListener);
 		}
 	};
-	
-	@Override
+
+	OnCheckedChangeListener mSpShowUiChangeListener = new OnCheckedChangeListener() {
+		@Override
+		public void onCheckedChanged(CompoundButton buttonView, boolean isChecked)
+		{
+			SharedPreferences.Editor editor = Main.getApplicationPrefences().edit();
+			editor.putBoolean("SmartPairShowUi", isChecked);
+			editor.apply();
+		}
+	};
+
+	OnCheckedChangeListener mSpAutodisconExa51ChangeListener = new OnCheckedChangeListener() {
+		@Override
+		public void onCheckedChanged(CompoundButton buttonView, boolean isChecked)
+		{
+			try {
+				// JSON: {"AutoDisconnectMap":{"EXA51":<true|false>}}
+				JSONObject setting = new JSONObject().put("AutoDisconnectMap", new JSONObject().put("EXA51", isChecked));
+				NurSmartPairSupport.setSettings(setting);
+
+				storeSmartPairSettings();
+			} catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+	};
+
+    OnCheckedChangeListener mSpSensitivityChangeListener = new OnCheckedChangeListener() {
+        @Override
+        public void onCheckedChanged(CompoundButton buttonView, boolean isChecked)
+        {
+        	try {
+				// JSON: {"ConnThresholdAdjust":<rssiAdjust>}
+				int rssiAdjust = isChecked ? -10 : 0;
+				JSONObject setting = new JSONObject().put("ConnThresholdAdjust", rssiAdjust);
+				NurSmartPairSupport.setSettings(setting);
+
+				storeSmartPairSettings();
+			} catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+        }
+    };
+
+
+    @Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		super.onViewCreated(view, savedInstanceState);
 		
@@ -299,16 +403,16 @@ public class SettingsAppHidTab extends Fragment {
 		mHidRFIDCheckBox = (CheckBox)view.findViewById(R.id.hid_rfid_checkbox);
 		mWirelessChargingCheckBox = (CheckBox)view.findViewById(R.id.hid_wireless_charging_checkbox);
 		mAllowPairingCheckBox = (CheckBox)view.findViewById(R.id.allow_pairing_checkbox);
-		mWirelessChargingLabel = (TextView)view.findViewById(R.id.hid_wireless_charging_label);
+        mWirelessChargingLabel = (TextView)view.findViewById(R.id.hid_wireless_charging_label);
 
-		mHidBarcodeCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
-		mHidRFIDCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
-		mWirelessChargingCheckBox.setOnCheckedChangeListener(mWirelessChargingChangeListener);
-		mAllowPairingCheckBox.setOnCheckedChangeListener(mAllowPairingChangeListener);
+		mSpShowUiCheckBox = (CheckBox) view.findViewById(R.id.sp_showui);
+        mSpAutodisconExa51CheckBox = (CheckBox) view.findViewById(R.id.sp_autodiscon_exa51);
+        mSpSensitivityCheckBox = (CheckBox) view.findViewById(R.id.sp_sensitivity);
+	}
 
-		enableItems(mApi.isConnected());
-		if (mApi.isConnected()) {
-            readCurrentSetup();
-        }
+	@Override
+	public void onResume() {
+		super.onResume();
+		readCurrentSetup();
 	}
 }

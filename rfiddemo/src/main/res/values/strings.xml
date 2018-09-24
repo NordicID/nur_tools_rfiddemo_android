@@ -58,8 +58,8 @@
     <string name="no_reader_attached">No reader connected</string>
     <string name="attached_reader_info">Connected reader info:</string>
     <string name="about_dialog_model">Model:</string>
-    <string name="about_dialog_serial">Serial:</string>
-    <string name="about_dialog_firmware">NUR firmware:</string>
+    <string name="about_dialog_serial">NUR serial number:</string>
+    <string name="about_dialog_device_serial">Device serial number:</string>
     <string name="about_dialog_bootloader">NUR bootloader:</string>
     <string name="about_dialog_accessory">Device firmware:</string>
     <string name="about_dialog_accessory_bldr">Device bootloader:</string>
@@ -114,6 +114,9 @@
     <string name="unlock_region_button">Unlock device region</string>
 
     <string name="dialog_epc">TAG\'S EPC:</string>
+    <string name="dialog_data">TID/USER DATA:</string>
+    <string name="dialog_tid">TID:</string>
+    <string name="dialog_user">USER:</string>
     <string name="dialog_rssi">RSSI:</string>
     <string name="dialog_timestamp">TIMESTAMP:</string>
     <string name="dialog_freg">FREQUENCY:</string>
@@ -147,7 +150,7 @@
 
     <string name="text_key_set_loaded">Loaded %1$d keys, using set %2$d</string>
 
-
+    <string name="text_export_info">While clearing tag list, tag\'s will be saved into the download folder as new file named as:\n\'epc_export_&lt;device serial>_&lt;timestamp>.csv\'</string>
     <string name="device_boot_mode">Device in boot mode please run the update NUR firmware app first</string>
 
 
@@ -196,6 +199,8 @@
     <!-- Update sources -->
     <string name="DFU_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/Applicationfirmwares.json</string>
     <string name="DFU_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/Bootloaderfirmwares.json</string>
+    <string name="DFU_TEST_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/TestApplicationfirmwares.json</string>
+    <string name="DFU_TEST_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/TestBootloaderfirmwares.json</string>
     <string name="NUR_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_firmware/master/firmwares.json</string>
     <string name="NUR_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/firmwares.json</string>
     <string name="export_csv">Export and share inventory list as CSV file</string>
