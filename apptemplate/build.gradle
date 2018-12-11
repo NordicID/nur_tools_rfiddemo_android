@@ -51,7 +51,7 @@ android {
             println 'Done'
         }
     }
-    buildToolsVersion '27.0.3'
+    buildToolsVersion '28.0.3'
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
         targetCompatibility JavaVersion.VERSION_1_7
@@ -59,7 +59,7 @@ android {
 }
 
 dependencies {
-    api project(':nurapi')
+    implementation files('../nurapi/NurApi.jar')
     api project(':NurApiAndroid')
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:27.1.1'
