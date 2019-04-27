@@ -508,18 +508,18 @@ public class InventoryController {
 
 			FileWriter fileWriter = new FileWriter(outputFile, false);
 			if(mInvType == 0)
-				fileWriter.write("firstseen;lastseen;epc;rssi\n");
+				fileWriter.write("firstseen,lastseen,epc,rssi\n");
 			else
-				fileWriter.write("firstseen;lastseen;epc;data;rssi\n");
+				fileWriter.write("firstseen,lastseen,epc,data,rssi\n");
 
 
 			for (HashMap<String, String> tag : tags)
 			{
-				fileWriter.append(tag.get("firstseentime") + ";");
-				fileWriter.append(tag.get("lastseentime") + ";");
-				fileWriter.append(tag.get("epc") + ";");
+				fileWriter.append(tag.get("firstseentime") + ",");
+				fileWriter.append(tag.get("lastseentime") + ",");
+				fileWriter.append(tag.get("epc") + ",");
 				if(mInvType > 0)
-					fileWriter.append(tag.get("irdata") + ";");
+					fileWriter.append(tag.get("irdata") + ",");
 
 				fileWriter.append(tag.get("rssi") + "\n");
 			}
