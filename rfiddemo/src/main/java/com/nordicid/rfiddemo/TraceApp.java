@@ -14,8 +14,11 @@ import com.nordicid.nurapi.NurEventIOChange;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Display;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -41,7 +44,7 @@ public class TraceApp extends SubApp {
 	private SimpleAdapter mFoundTagsListViewAdapter;
 
 	private Button mStartStopLocating;
-	private TextView mLocatableEpcEditText;
+	private EditText mLocatableEpcEditText;
 	private EditText mPctText;
 	
 	private ProgressBar mProgressBar;
@@ -56,6 +59,7 @@ public class TraceApp extends SubApp {
 
 	public TraceApp() {
 		super();
+		mLocatableEpc="";
 		mTraceController = new TraceTagController(getNurApi());
 		mInventoryController = new InventoryController(getNurApi());
 
@@ -64,7 +68,6 @@ public class TraceApp extends SubApp {
 			public void traceTagEvent(TracedTagInfo data) {
 				int scaledRssi = data.scaledRssi;
 
-				//mProgressBar.setProgress(scaledRssi);
 				mPctText.setText(scaledRssi + "%");
 
 				if (mAnimator != null) {
@@ -172,7 +175,7 @@ public class TraceApp extends SubApp {
 		mProgressBar = (ProgressBar) view.findViewById(R.id.progressBar);
 		mFoundTagsListView = (ListView) view.findViewById(R.id.tags_listview);
 		mEmptyListViewNotice = (RelativeLayout) view.findViewById(R.id.listview_empty);
-		mLocatableEpcEditText = (TextView) view.findViewById(R.id.locate_epc_edittext);
+		mLocatableEpcEditText = (EditText) view.findViewById(R.id.locate_epc_edittext);
 		mPctText = (EditText) view.findViewById(R.id.pct_text);
 
 		// Do not save EditText state
@@ -215,7 +218,7 @@ public class TraceApp extends SubApp {
 				HashMap<String,String> selectedTagData = (HashMap<String, String>) mFoundTagsListView.getItemAtPosition(position);
 				String epc = selectedTagData.get("epc");
 
-				mLocatableEpcEditText.setText("Locate tag: " + epc);
+				mLocatableEpcEditText.setText(epc);
 				mLocatableEpc = epc;
 
 				if (mTraceController.isTracingTag()) {
@@ -223,11 +226,47 @@ public class TraceApp extends SubApp {
 				}
 			}			
 		});
-		
+
+		mLocatableEpcEditText.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+			}
+
+			@Override
+			public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+			}
+
+			@Override
+			public void afterTextChanged(Editable editable) {
+				String tmp = mLocatableEpcEditText.getText().toString().replaceAll("[^a-fA-F_0-9]", "");
+
+				if (!tmp.equals(mLocatableEpcEditText.getText().toString())) {
+					mLocatableEpcEditText.setText(tmp);
+					mLocatableEpcEditText.setSelection(mLocatableEpcEditText.getText().length());
+				}
+
+				if(mLocatableEpcEditText.getText().toString().length() == 0 ) {
+					mLocatableEpcEditText.setBackgroundColor(Color.rgb(230,230,230));
+					return;
+				}
+
+				if ((mLocatableEpcEditText.getText().toString().length() % 4) != 0) {
+					mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+					mLocatableEpc="";
+				}
+				else {
+					mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+					mLocatableEpc = mLocatableEpcEditText.getText().toString();
+				}
+			}
+		});
+
 		mFoundTagsListViewAdapter.notifyDataSetChanged();
 
 		if (mLocatableEpc != null)
-			mLocatableEpcEditText.setText("Locate tag: " + mLocatableEpc);
+			mLocatableEpcEditText.setText(mLocatableEpc);
 		else
 			mLocatableEpcEditText.setText(null);
 
@@ -256,12 +295,15 @@ public class TraceApp extends SubApp {
 		try {
 			if (!mTraceController.isTracingTag())
 			{
-				if (mLocatableEpc == null || mLocatableEpc.length() == 0)
+				if (mLocatableEpc == null)
 					Toast.makeText(getActivity(), getString(R.string.locatable_epc_hint), Toast.LENGTH_SHORT).show();
 				else if (!getNurApi().isConnected())
 					Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
-				else  if (mTraceController.startTagTrace(mLocatableEpc))
+				else  if (mTraceController.startTagTrace(mLocatableEpc)) {
 					mStartStopLocating.setText(getString(R.string.stop));
+					mLocatableEpcEditText.setEnabled(false);
+					mLocatableEpcEditText.setBackgroundColor(Color.rgb(230, 255, 230));
+				}
 				else
 					Toast.makeText(getActivity(), "Invalid EPC", Toast.LENGTH_SHORT).show();
 			}
@@ -276,6 +318,8 @@ public class TraceApp extends SubApp {
 		{
 			mTraceController.stopTagTrace();
 			mStartStopLocating.setText(getString(R.string.start));
+			mLocatableEpcEditText.setEnabled(true);
+			mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
 		}
 	}
 	

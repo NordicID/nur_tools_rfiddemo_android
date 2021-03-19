@@ -8,10 +8,10 @@ import com.nordicid.nurapi.NurApi;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentStatePagerAdapter;
-import android.support.v4.view.ViewPager;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentStatePagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 import android.util.Log;
 import android.view.View;
 
@@ -39,38 +39,54 @@ public class SubAppTabbed extends SubApp {
 	{
 		return "";
 	}
-	
+
+	@Override
+	public void onResume() {
+		super.onResume();
+
+		//Log.d("SubAppTabbed", "onResume");
+
+		final String preferredTab = onGetPreferredTab();
+
+		if(!preferredTab.isEmpty())
+		{
+			final int tabIndex = mFragmentNames.indexOf(preferredTab);
+
+			if (tabIndex >= 0) {
+				AppTemplate.getAppTemplate().runOnUiThread(new Runnable() {
+					@Override
+					public void run() {
+						Log.d("TAB","PreferredTab=" + preferredTab +  " index=" + tabIndex);
+						mPager.setCurrentItem(tabIndex, false);
+					}
+				});
+			}
+		}
+	}
+
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
+		super.onViewCreated(view, savedInstanceState);
+
+		// Log.d("SubAppTabbed", "onViewCreated");
+
 		try {
-			if (mPagerID == -1)
-			{
+			//if (mPagerID == -1)
+			//{
+				mFragments.clear();
+				mFragmentNames.clear();
 				mPagerID = onGetFragments(mFragments, mFragmentNames);	
-			}
+			//}
 			mPagerAdapter = new SubAppTabbedPagerAdapter(getChildFragmentManager());
 			mPager = (ViewPager) view.findViewById(mPagerID);
 			mPager.setAdapter(mPagerAdapter);
 
-			String preferredTab;
-			preferredTab = onGetPreferredTab();
 
-			if(!preferredTab.isEmpty())
-			{
-				int tabIndex;
-				tabIndex = mFragmentNames.indexOf(preferredTab);
-
-				if (tabIndex >= 0) {
-					mPager.setCurrentItem(tabIndex);
-					Log.e("TAB","PreferredTab=" + preferredTab +  " index=" + tabIndex);
-				}
-			}
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		super.onViewCreated(view, savedInstanceState);
 	}
 	
 	//Custom pager adapter class

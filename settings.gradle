@@ -1,1 +1,1 @@
-include ':nurapi', ':apptemplate', ':rfiddemo', ':NurApiAndroid', ':NurSmartPair'
+include ':apptemplate', ':rfiddemo', ':NurApiAndroid', ':NurSmartPair', ':NurDeviceUpdate', ':NiduLib', ':TDTLib'

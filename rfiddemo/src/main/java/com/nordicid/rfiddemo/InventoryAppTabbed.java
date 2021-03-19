@@ -1,6 +1,7 @@
 package com.nordicid.rfiddemo;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import com.nordicid.apptemplate.SubAppTabbed;
 import com.nordicid.controllers.InventoryController;
@@ -8,15 +9,19 @@ import com.nordicid.controllers.InventoryController.InventoryControllerListener;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
 import com.nordicid.nurapi.*;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
+import android.os.CountDownTimer;
 
 /*The host that hostes InventoryAppReadingTab and InventoryAppFoundTab cause
  * by default SubApp defines the main/host fragment to retain its information.
@@ -24,16 +29,20 @@ import android.widget.Toast;
  */
 public class InventoryAppTabbed extends SubAppTabbed {
 
+	final private String TAG = "INVAPP";
+	private final int REQUEST_CODE_OPEN_DIRECTORY = 44;
 	private Button mStartStopInventory;
 	
 	private InventoryAppReadingTab mReadingTab;
 	private InventoryAppFoundTab mFoundTab;
 
 	private InventoryController mInventoryController;
-	
+
 	long mLastUpdateTagCount = 0;
+	long mLastExportedCount = 0;
 
 	Handler mHandler;
+	private CountDownTimer mPingTimer; //For keeping NUR module wake
 
 	private static InventoryAppTabbed gInstance = null;
 	public static InventoryAppTabbed getInstance()
@@ -110,7 +119,42 @@ public class InventoryAppTabbed extends SubAppTabbed {
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		mView = view;
-		
+		Log.w("INVENTORY","onViewCreated");
+
+		//Wakeup NUR module in case its in sleep
+		try {
+			if(getNurApi().isConnected())
+				getAppTemplate().getNurApi().ping();
+		}catch (Exception e) {}
+
+		//We'll need to ping NUR module time to time for preventing to go sleep because waking up takes 2 sec.
+		//This helps to start inventory immediately when user press START button.
+		mPingTimer = new CountDownTimer(10000,1000) {
+			@Override
+			public void onTick(long millisUntilFinished) {
+				//Log.i(TAG,"seconds remaining: " + millisUntilFinished / 1000);
+			}
+
+			@Override
+			public void onFinish() {
+
+				if (mInventoryController.isInventoryRunning()==false)
+				{
+					//No inventory pending so let's keep NUR module wake
+					try {
+						getAppTemplate().getNurApi().ping();
+						Log.i(TAG,"Ping!");
+					}catch (Exception e) {}
+				}
+
+				mPingTimer.start(); //Start again
+
+			}
+		};
+
+		Log.i(TAG,"StartPingTimer!");
+		mPingTimer.start();
+
 		mInventoryController.setListener(new InventoryControllerListener() {
 
 			@SuppressWarnings("unchecked")
@@ -172,6 +216,19 @@ public class InventoryAppTabbed extends SubAppTabbed {
 						 stopInventory();
 					}
 				}
+				else if(event.source == ACC_SENSOR_SOURCE.ToFSensor.getNumVal()) {
+					//ToF sensor of EXA21 has triggered GPIO event
+					// Direction goes 0->1 when sensors reads less than Range Lo filter (unit: mm)
+					// Direction goes 1->0 when sensors reads more than Range Hi filter (unit: mm)
+					if(event.direction == 1) {
+						//There are something front of EXA21 ToF sensor, let's start inventory
+						startInventory();
+					}
+					else {
+						//Nothing seen at front of ToF sensor. It's time to stop inventory.
+						stopInventory();
+					}
+				}
 			}
 		});
 		
@@ -196,7 +253,72 @@ public class InventoryAppTabbed extends SubAppTabbed {
 			}
 		});
 
+		addButtonBarButton(getString(R.string.export), new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (mInventoryController.isInventoryRunning()) {
+					Toast.makeText(getActivity(), getString(R.string.export_stop_first), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				mLastUpdateTagCount = mInventoryController.getTagStorage().size();
+
+				if(mLastUpdateTagCount == 0) {
+					Toast.makeText(getActivity(), getString(R.string.export_nothing), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				if(mLastUpdateTagCount == mLastExportedCount) {
+					Toast.makeText(getActivity(), getString(R.string.export_already), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				String ret=mInventoryController.Export(getActivity().getApplicationContext());
+				if(!ret.isEmpty()) {
+					Toast.makeText(getActivity(), "Error occurred!: " + ret, Toast.LENGTH_SHORT).show();
+					selectFolder();
+					return;
+				}
+				else {
+					Toast.makeText(getActivity(), getString(R.string.export_success), Toast.LENGTH_LONG).show();
+				}
+
+				mLastExportedCount = mLastUpdateTagCount;
+			}
+		});
+
 		super.onViewCreated(view, savedInstanceState);
+	}
+
+	public void selectFolder()
+	{
+		Main.getInstance().setDoNotDisconnectOnStop(true);
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+		startActivityForResult(intent,  REQUEST_CODE_OPEN_DIRECTORY);
+		Toast.makeText(getActivity(), "Specify folder for exporting data", Toast.LENGTH_LONG).show();
+	}
+
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+
+		if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == Activity.RESULT_OK) {
+
+			Uri treeUri = data.getData();
+			String mPath = treeUri.toString();
+			mInventoryController.SaveUriPath(mPath);
+			String ret=mInventoryController.Export(getActivity().getApplicationContext());
+			if(!ret.isEmpty()) {
+				Toast.makeText(getActivity(), "Error occurred!: " + ret, Toast.LENGTH_LONG).show();
+				return;
+			}
+			else {
+				Toast.makeText(getActivity(), getString(R.string.export_success), Toast.LENGTH_LONG).show();
+				mLastExportedCount = mLastUpdateTagCount;
+			}
+		}
+
+		Main.getInstance().setDoNotDisconnectOnStop(false);
 	}
 
 	public void stopInventory() {
@@ -204,7 +326,7 @@ public class InventoryAppTabbed extends SubAppTabbed {
 	}
 	
 	public void startInventory() {
-
+		mLastExportedCount = 0;
 		//Going to start inventory. Let's take inventory settings configurated by user.
 		mInventoryController.LoadInventorySettings();
 
@@ -222,6 +344,7 @@ public class InventoryAppTabbed extends SubAppTabbed {
 		mInventoryController.clearInventoryReadings();
 		mFoundTab.mFoundTagsListViewAdapter.notifyDataSetChanged();
         mLastUpdateTagCount = 0;
+        mLastExportedCount = 0;
 		mReadingTab.updateStats(mInventoryController);
 	}
 
@@ -243,14 +366,18 @@ public class InventoryAppTabbed extends SubAppTabbed {
 	
 	@Override
 	public void onPause() {
+		Log.w("INVENTORY","onPause");
 		super.onPause();
 		if (mInventoryController.isInventoryRunning()) {
 			stopInventory();
 		}
 	}
-	
+
 	@Override
 	public void onStop() {
+		Log.w("INVENTORY","onStop");
+		mPingTimer.cancel();
+
 		super.onStop();
 		if (mInventoryController.isInventoryRunning()) {
 			stopInventory();

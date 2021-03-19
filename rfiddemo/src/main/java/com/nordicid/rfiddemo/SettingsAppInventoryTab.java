@@ -5,10 +5,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import androidx.fragment.app.Fragment;
+
 import android.os.Environment;
-import android.provider.MediaStore;
-import android.support.v4.app.Fragment;
-import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,18 +17,14 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
-import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.RadioButton;
-import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nordicid.apptemplate.AppTemplate;
-import com.nordicid.nuraccessory.NurAccessoryConfig;
-import com.nordicid.nuraccessory.NurAccessoryExtension;
-import com.nordicid.nuraccessory.NurAccessoryVersionInfo;
 
+import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
@@ -46,13 +41,10 @@ import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.nordicid.apptemplate.AppTemplate.getAppTemplate;
 
 /**
  * Created by Ari_Poyhonen on 14.12.2017.
@@ -60,24 +52,32 @@ import java.util.List;
 
 public class SettingsAppInventoryTab extends Fragment
 {
+    private final int REQUEST_CODE_OPEN_DIRECTORY = 44;
+    //Create a class variable that is your activities request code
+    private static final int REQUEST_DIRECTORY_PICKER = 1;
+
     SettingsAppTabbed mOwner;
     NurApi mApi;
 
-    NurAccessoryExtension mExt;
+    AccessoryExtension mExt;
 
     private Spinner mInvTypeSpinner;
     private Spinner mDataLen;
     private TextView mTxtDataLen;
-    private CheckBox mChkExport;
-    //private TextView mFilePath;
+    private Button mButtonBrowseFolder;
+    private TextView mTxtPath;
+    private CheckBox mShowTDTPureUri;
+    private CheckBox mAddGpsCoordinate;
 
     private RadioButton mRadioDown;
     private RadioButton mRadioClick;
 
     private int mDataLengthInt;
     private int mInvTypeInt;
-    private boolean mExportBoolean;
+    private boolean mReadTDTPureUri;
+    private boolean mAddGpsCoord;
     private boolean mTriggerDown;
+    private String mPath;
 
     SharedPreferences settings = null;
     SharedPreferences.Editor settingEditor = null;
@@ -93,7 +93,7 @@ public class SettingsAppInventoryTab extends Fragment
     {
         mOwner = SettingsAppTabbed.getInstance();
         mApi = mOwner.getNurApi();
-        mExt = AppTemplate.getAppTemplate().getAccessoryApi();
+        mExt = getAppTemplate().getAccessoryApi();
 
         mThisClassListener = new NurApiListener() {
             @Override
@@ -181,10 +181,9 @@ public class SettingsAppInventoryTab extends Fragment
             enable=true;
         }
 
-        mChkExport.setEnabled(enable);
         mDataLen.setEnabled(enable);
 
-        if(Main.getAppTemplate().getAccessorySupported() && enable == true)
+        if(getAppTemplate().getAccessorySupported() && enable == true)
         {
             mRadioClick.setEnabled(enable);
             mRadioDown.setEnabled(enable);
@@ -236,6 +235,7 @@ public class SettingsAppInventoryTab extends Fragment
 
     }
 
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
     {
@@ -244,12 +244,13 @@ public class SettingsAppInventoryTab extends Fragment
 
         mDataLengthInt = settings.getInt("DataLength",2);
         mInvTypeInt = settings.getInt("InvType",0);
+        mReadTDTPureUri = settings.getBoolean("ReadPureUri",false);
+        mAddGpsCoord = settings.getBoolean("AddGpsCoord",false);
 
-        mExportBoolean = settings.getBoolean("ExportBool",false);
         mTriggerDown = settings.getBoolean("TriggerDown",false);
-
-        //File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        //mExportString = path.getAbsolutePath();
+        //mPath = settings.getString("FilePath","content://com.android.externalstorage.documents/tree/primary%3ADownload");
+        //mPath = settings.getString("FilePath","content://com.android.externalstorage.documents/tree/primary%3ADownload");
+        mPath = settings.getString("FilePath", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
 
         return inflater.inflate(R.layout.tab_settings_inventory, container, false);
     }
@@ -259,19 +260,19 @@ public class SettingsAppInventoryTab extends Fragment
     {
         super.onViewCreated(view, savedInstanceState);
 
-        //mFilePath = (TextView) view.findViewById(R.id.textExportFolder);
         mInvTypeSpinner = (Spinner) view.findViewById(R.id.inv_mode_spinner);
         mTxtDataLen = (TextView) view.findViewById(R.id.textDataLength);
-        mChkExport = (CheckBox) view.findViewById(R.id.checkBoxExport);
+        mShowTDTPureUri = (CheckBox) view.findViewById(R.id.checkBoxShowPureUri);
+        mButtonBrowseFolder = (Button)view.findViewById(R.id.buttonBrowseFolder);
+        mTxtPath = (TextView) view.findViewById(R.id.textPath);
+        mAddGpsCoordinate = (CheckBox) view.findViewById(R.id.checkBoxExportLocation);
         mDataLen = (Spinner) view.findViewById(R.id.data_length_spinner);
         mRadioDown = (RadioButton) view.findViewById(R.id.radio_trig_down);
         mRadioClick = (RadioButton) view.findViewById(R.id.radio_trig_click);
 
-        mChkExport.setChecked(mExportBoolean);
-
         UpdateIRViews();
 
-        if(Main.getAppTemplate().getAccessorySupported()) {
+        if(getAppTemplate().getAccessorySupported()) {
             if (mTriggerDown) {
                 mRadioDown.setChecked(true);
                 mRadioClick.setChecked(false);
@@ -281,8 +282,11 @@ public class SettingsAppInventoryTab extends Fragment
             }
         }
 
-        //File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        //mFilePath.setText(path.getAbsolutePath());
+        if(mPath.startsWith("content")) {
+            mTxtPath.setText(Uri.decode(mPath));
+        }
+        else
+            mTxtPath.setText(mPath);
 
         final List<String> dataLengthItems = new ArrayList<>();
 
@@ -293,6 +297,27 @@ public class SettingsAppInventoryTab extends Fragment
         final ArrayAdapter<String> spinnerArrayAdapterDataLen = new ArrayAdapter<String>(view.getContext(),android.R.layout.simple_spinner_item,dataLengthItems);
         mDataLen.setAdapter(spinnerArrayAdapterDataLen);
 
+        mShowTDTPureUri.setChecked(mReadTDTPureUri);
+
+        mShowTDTPureUri.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                settingEditor.putBoolean("ReadPureUri",isChecked);
+                settingEditor.apply();
+            }
+        });
+
+        mAddGpsCoordinate.setChecked((mAddGpsCoord));
+
+        mAddGpsCoordinate.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                settingEditor.putBoolean("AddGpsCoord",isChecked);
+                settingEditor.apply();
+                if(isChecked)
+                    getAppTemplate().refreshLocation();
+            }
+        });
 
         String comp=Integer.toString(mDataLengthInt);
         int spinnerPosition = spinnerArrayAdapterDataLen.getPosition(comp);
@@ -320,21 +345,18 @@ public class SettingsAppInventoryTab extends Fragment
             }
         });
 
-
-        mChkExport.setOnClickListener(new View.OnClickListener() {
+        mButtonBrowseFolder.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
-                mExportBoolean = mChkExport.isChecked();
-                settingEditor.putBoolean("ExportBool",mExportBoolean);
-                settingEditor.apply();
+                selectFolder();
             }
         });
 
         mInvTypeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                //Object item = parent.getItemAtPosition(pos);
-                mInvTypeInt = pos; //Integer.parseInt(item.toString());
+
+                mInvTypeInt = pos;
                 settingEditor.putInt("InvType",mInvTypeInt);
                 settingEditor.apply();
 
@@ -359,5 +381,25 @@ public class SettingsAppInventoryTab extends Fragment
         enableItems();
     }
 
+    public void selectFolder() {
+        Main.getInstance().setDoNotDisconnectOnStop(true);
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        startActivityForResult(intent, REQUEST_CODE_OPEN_DIRECTORY);
+    }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == Activity.RESULT_OK) {
+
+            Uri treeUri = data.getData();
+            mPath = treeUri.toString();
+
+            settingEditor.putString("FilePath",mPath);
+            settingEditor.apply();
+        }
+
+        Main.getInstance().setDoNotDisconnectOnStop(false);
+    }
 }

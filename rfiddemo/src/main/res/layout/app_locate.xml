@@ -39,7 +39,7 @@
             android:focusable="false"
             android:focusableInTouchMode="false"
             android:gravity="center_vertical|center_horizontal"
-            android:inputType="none"
+            android:inputType=""
             android:text="0%"
             android:textSize="24sp"
             android:textStyle="bold">
@@ -49,15 +49,28 @@
     </RelativeLayout>
 
     <TextView
-        android:id="@+id/locate_epc_edittext"
+        android:id="@+id/locate_epc_hdr"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginLeft="5dp"
         android:layout_marginRight="5dp"
         android:background="@drawable/orange_border_bottom_whitefill"
         android:gravity="center"
+        android:text="Locate Tag:"
+        android:paddingBottom="5dp"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <EditText
+        android:id="@+id/locate_epc_edittext"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp"
+        android:layout_gravity="center"
+        android:background="@color/default_bg"
+        android:gravity="center"
         android:hint="@string/locatable_epc_hint"
-        android:inputType="none"
+        android:inputType="text"
         android:paddingBottom="5dp"
         android:textAppearance="?android:attr/textAppearanceMedium" />
 

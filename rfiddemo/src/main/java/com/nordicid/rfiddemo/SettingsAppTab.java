@@ -3,14 +3,13 @@ package com.nordicid.rfiddemo;
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
-import android.widget.Toast;
 
 import com.nordicid.nurapi.NurApiListener;
 
@@ -54,7 +53,7 @@ public class SettingsAppTab extends Fragment {
         settingEditor = settings.edit();
         rotationEnabled = settings.getBoolean("Rotation",false);
         soundsEnabled = !settings.getBoolean("Sounds",true);
-        updateCheckingEnabled = settings.getBoolean("CheckUpdate",false);
+        //updateCheckingEnabled = settings.getBoolean("CheckUpdate",false);
         return inflater.inflate(R.layout.tab_settings_app, container, false);
     }
 
@@ -77,6 +76,7 @@ public class SettingsAppTab extends Fragment {
         }
     };
 
+    /*
     OnCheckedChangeListener mOnCheckedChangeListenerUpdates = new OnCheckedChangeListener() {
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -84,7 +84,7 @@ public class SettingsAppTab extends Fragment {
             settingEditor.apply();
         }
     };
-
+    */
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
@@ -92,12 +92,12 @@ public class SettingsAppTab extends Fragment {
 
         mScreenOrientationCheckBox = (CheckBox)view.findViewById(R.id.enable_orientation_checkbox);
         mAppSoundsCheckBox = (CheckBox)view.findViewById(R.id.enable_sounds_checkbox);
-        mUpdateCheck = (CheckBox)view.findViewById(R.id.disable_update_check);
-        mUpdateCheck.setOnCheckedChangeListener(mOnCheckedChangeListenerUpdates);
+        //mUpdateCheck = (CheckBox)view.findViewById(R.id.disable_update_check);
+        //mUpdateCheck.setOnCheckedChangeListener(mOnCheckedChangeListenerUpdates);
         mScreenOrientationCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListenerRotation);
         mAppSoundsCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListenerSounds);
         mScreenOrientationCheckBox.setChecked(rotationEnabled);
-        mUpdateCheck.setChecked(updateCheckingEnabled);
+        //mUpdateCheck.setChecked(updateCheckingEnabled);
         mAppSoundsCheckBox.setChecked(soundsEnabled);
     }
 }

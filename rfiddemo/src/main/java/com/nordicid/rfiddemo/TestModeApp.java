@@ -1,8 +1,11 @@
 package com.nordicid.rfiddemo;
 
+import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.apptemplate.SubApp;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
+import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
+import com.nordicid.nurapi.NurApiException;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
 import com.nordicid.nurapi.NurEventClientInfo;
@@ -31,6 +34,7 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -39,8 +43,9 @@ import java.util.ArrayList;
 public class TestModeApp extends SubApp {
 
     private NurApiListener mThisClassListener = null;
+    final private String TAG = "TST";
 
-    private NurAccessoryExtension mAccessoryExt;
+    private AccessoryExtension mAccessoryExt;
     private boolean mIsBle = false;
 
     private Spinner mNurTestTypeSpinner;
@@ -52,7 +57,21 @@ public class TestModeApp extends SubApp {
     private Button mStartButton;
     private Button mStartNurButton;
 
+    private Button mSecurePinButton;
+
     private ToggleButton mRegionLockDevice;
+
+    private Button mPingButtonStartStop;
+    private TextView mPingTextStat;
+    private TextView mPingTextStat2;
+    private boolean mPingState;
+    private int mPingOkCount;
+    private int mPingErrorCount;
+    private long mPingStartTime;
+    private Thread mPingSpamThread;
+    private int mPingRespTimeAvg;
+
+    private int mCalibMode;
 
     @Override
     public NurApiListener getNurApiListener() {
@@ -157,6 +176,62 @@ public class TestModeApp extends SubApp {
             e.printStackTrace();
             Toast.makeText(getContext(), "NUR test cmd failed:\n" + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * Passkey set input test for EXA21 BLE. Do not use!
+     */
+    void ToFCalibration()
+    {
+        try {
+            if (mAccessoryExt.getConfig().isDeviceEXA21() == false) {
+                Toast.makeText(getContext(), "Sorry, for EXA21 only", Toast.LENGTH_LONG).show();
+                return;
+            }
+        }catch (Exception e) {
+            Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("ToF calibration. Object 10cm press OK");
+
+        final TextView txt = new TextView(getContext());
+        if(mCalibMode==0)
+            txt.setText("Put object front of ToF distance 10 cm and press SET");
+        else if (mCalibMode==1)
+            txt.setText("Put object front of ToF distance 30 cm and press SET");
+
+        builder.setView(txt);
+
+        builder.setPositiveButton("SET", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                try {
+                    if(mCalibMode==0) {
+                        mAccessoryExt.TOFCalibration((byte)0, (byte)10);
+                        mCalibMode=1;
+                        ToFCalibration();
+                    }
+                    else if(mCalibMode==1) {
+                        mAccessoryExt.TOFCalibration((byte) 1, (byte) 30);
+                        Toast.makeText(getContext(), "ToF calibration complete", Toast.LENGTH_LONG).show();
+                    }
+
+                }
+                catch (Exception e) {
+                    Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
     }
 
     void startTest()
@@ -268,6 +343,8 @@ public class TestModeApp extends SubApp {
         mNurChannelSpinner.setEnabled(getNurApi().isConnected());
         mStartNurButton.setEnabled(getNurApi().isConnected());
         mRegionLockDevice.setEnabled(getNurApi().isConnected());
+        mPingButtonStartStop.setEnabled(getNurApi().isConnected());
+
 
         if (getNurApi().isConnected())
         {
@@ -318,6 +395,24 @@ public class TestModeApp extends SubApp {
                 e.printStackTrace();
             }
         }
+        else {
+            mPingButtonStartStop.setText("Start");
+            mPingState=false;
+        }
+
+    }
+
+    private void showOnUI() {
+        AppTemplate.getAppTemplate().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String stat = "OK=" + Integer.toString(mPingOkCount) + " Err=" + Integer.toString(mPingErrorCount) + " time=" + Integer.toString(mPingRespTimeAvg)+"ms";
+                mPingTextStat.setText(stat);
+                double runTime = (System.currentTimeMillis()- mPingStartTime)/1000 ;
+                String numberAsString = String.format ("%.1f", runTime);
+                mPingTextStat2.setText("Running time= " +numberAsString + " sec");
+            }
+        });
     }
 
     @Override
@@ -330,8 +425,14 @@ public class TestModeApp extends SubApp {
 
         mStartButton = (Button) view.findViewById(R.id.tm_start_test);
         mStartNurButton = (Button) view.findViewById(R.id.tm_start_nur_test);
+        mSecurePinButton = (Button) view.findViewById(R.id.tm_secure_pin);
 
         mRegionLockDevice.setOnClickListener(mRegionalLockListener);
+
+        mPingButtonStartStop = (Button) view.findViewById(R.id.tm_button_ping_start);
+
+        mPingTextStat = (TextView) view.findViewById(R.id.tm_text_ping_stat);
+        mPingTextStat2 = (TextView) view.findViewById(R.id.tm_text_ping_stat2);
 
         ArrayAdapter<CharSequence> nurTestTypeSpinnerAdapter = ArrayAdapter.createFromResource(getActivity(), R.array.tm_nur_test_types, android.R.layout.simple_spinner_item);
         nurTestTypeSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -352,6 +453,8 @@ public class TestModeApp extends SubApp {
         mBleChannelSpinner.setAdapter(adapter);
 
         enableControls();
+        mPingState=false;
+
 
         mStartButton.setOnClickListener(new View.OnClickListener()
         {
@@ -368,6 +471,94 @@ public class TestModeApp extends SubApp {
                 startNurOnlyTest();
             }
         });
+
+        mSecurePinButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCalibMode=0;
+                ToFCalibration();
+            }
+        });
+
+        mPingButtonStartStop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(mPingState==false) {
+                    //Start
+                    mPingButtonStartStop.setText("Stop");
+                    mPingOkCount=0;
+                    mPingErrorCount=0;
+                    mPingStartTime=System.currentTimeMillis();
+                    mPingState=true;
+
+                }
+                else
+                {
+                    //Stop pinging
+                    mPingButtonStartStop.setText("Start");
+                    mPingState=false;
+
+                }
+            }
+        });
+
+
+        mPingSpamThread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                int cnt=0;
+                int maxcnt=10;
+                long t1,t2;
+                int respTimeMs=0;
+
+                while(true) {
+                    if (mPingState) {
+                        try {
+                            //Thread.sleep(10);
+                            if (getNurApi().isConnected()) {
+                                t1= System.currentTimeMillis();
+                                getNurApi().ping();
+                                t2 =  System.currentTimeMillis();
+                                respTimeMs+=(t2-t1);
+                                mPingOkCount++;
+                            }
+                            else
+                            {
+                                mPingErrorCount++;
+                                Log.e(TAG, "NO CONN");
+                                //Thread.sleep(100);
+                            }
+                        } catch (NurApiException e) {
+                            mPingErrorCount++;
+                            Log.e(TAG, "NurApiPingErr=" + e.getMessage());
+                        } catch (Exception ex) {
+                            //mPingErrorCount++;
+                            if(ex!=null)
+                                Log.e(TAG, "PingErr=" + ex.getMessage());
+                            else mPingErrorCount++;
+                        }
+
+                        cnt++;
+
+                        if (cnt >= maxcnt) {
+                            //Log.i(TAG,"ShowUI");
+                            mPingRespTimeAvg = respTimeMs/cnt;
+                            respTimeMs=0;
+                            showOnUI();
+                            cnt = 0;
+                        }
+                        continue;
+                    }
+                    try {
+                        Thread.sleep(100);
+                    }catch (Exception e) {}
+
+                }
+            }
+        });
+
+        mPingSpamThread.start();
     }
 
     View.OnClickListener mRegionalLockListener = new View.OnClickListener() {

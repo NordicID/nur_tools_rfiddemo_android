@@ -75,6 +75,35 @@
             android:textOn="@string/unlock_region_button"
             android:textOff="@string/lock_region_button"
             android:text="@string/regionLock_checkbox"/>
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ToF calibration (EXA21)"
+            android:id="@+id/tm_secure_pin"
+            android:layout_gravity="center_horizontal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ping spammer" />
+
+        <Button
+            android:id="@+id/tm_button_ping_start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start" />
+
+        <TextView
+            android:id="@+id/tm_text_ping_stat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Stats:" />
+
+        <TextView
+            android:id="@+id/tm_text_ping_stat2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Stat2:" />
 
     </LinearLayout>
 </ScrollView>

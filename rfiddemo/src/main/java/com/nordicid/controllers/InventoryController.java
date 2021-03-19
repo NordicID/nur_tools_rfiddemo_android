@@ -2,46 +2,21 @@ package com.nordicid.controllers;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
+import com.nordicid.tdt.*;
+
+import androidx.documentfile.provider.DocumentFile;
 
 import com.nordicid.apptemplate.AppTemplate;
-import com.nordicid.helpers.CompatFileProvider;
 import com.nordicid.nurapi.*;
-
-/*
-import com.nordicid.nurapi.NurCmdDevCaps;
-import com.nordicid.nurapi.NurApiErrors;
-import com.nordicid.nurapi.NurApiException;
-import com.nordicid.nurapi.NurApiListener;
-import com.nordicid.nurapi.NurEventAutotune;
-import com.nordicid.nurapi.NurEventClientInfo;
-import com.nordicid.nurapi.NurEventDeviceInfo;
-import com.nordicid.nurapi.NurEventEpcEnum;
-import com.nordicid.nurapi.NurEventFrequencyHop;
-import com.nordicid.nurapi.NurEventIOChange;
-import com.nordicid.nurapi.NurEventInventory;
-import com.nordicid.nurapi.NurEventNxpAlarm;
-import com.nordicid.nurapi.NurEventProgrammingProgress;
-import com.nordicid.nurapi.NurEventTagTrackingChange;
-import com.nordicid.nurapi.NurEventTagTrackingData;
-import com.nordicid.nurapi.NurEventTraceTag;
-import com.nordicid.nurapi.NurEventTriggeredRead;
-import com.nordicid.nurapi.NurInventoryExtended;
-import com.nordicid.nurapi.NurRespInventory;
-import com.nordicid.nurapi.NurIRConfig;
-import com.nordicid.nurapi.NurTag;
-import com.nordicid.nurapi.NurTagStorage;
-*/
 
 import com.nordicid.rfiddemo.Beeper;
 import com.nordicid.rfiddemo.Main;
@@ -51,6 +26,7 @@ import com.nordicid.rfiddemo.TraceApp;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -163,7 +139,9 @@ public class InventoryController {
 	//Inventory settings
 	private int mDataWords;
 	public int mInvType; //0=epc 1=epc+tid 2=epc+user
-	private boolean mExport;
+	public boolean mReadTDTPureUri;
+	private boolean mAddGpsCoord;
+	private String mPath;
 	public boolean mTriggerDown;
 
 	private ArrayList<HashMap<String, String>> mListViewAdapterData = new ArrayList<HashMap<String,String>>();
@@ -206,6 +184,8 @@ public class InventoryController {
 					
 					try {
 						mApi.startInventoryStream();
+						if(mAddGpsCoord)
+							AppTemplate.getAppTemplate().refreshLocation();
 					}
 					catch (Exception err) {
 						err.printStackTrace();
@@ -273,14 +253,31 @@ public class InventoryController {
 				{
 					tmp = new HashMap<String, String>();
 					// Add new
-					tmp.put("epc", tag.getEpcString());
+					if(mReadTDTPureUri) {
+						try {
+							//Check if tag is GS1 coded. Exception fired if not and plain EPC shown.
+							//This is TDT (TagDataTranslation) library feature.
+							EPCTagEngine engine = new EPCTagEngine(tag.getEpcString());
+							//Looks like it is GS1 coded.
+							//tmp.put("epc", engine.buildPureIdentityURI());
+							tmp.put("epc", engine.buildTagURI());
+						} catch (Exception ex) {
+							//Not GS1 coded. Show only EPC hex string.
+							tmp.put("epc", tag.getEpcString());
+						}
+					}
+					else
+						tmp.put("epc", tag.getEpcString());
+
 					tmp.put("rssi", Integer.toString(tag.getRssi()));
+					tmp.put("maxrssi", Integer.toString(tag.getRssi()));
 					tmp.put("timestamp", Integer.toString(tag.getTimestamp()));
 					tmp.put("freq", Integer.toString(tag.getFreq())+" kHz Ch: "+Integer.toString(tag.getChannel()));
 					tmp.put("found", "1");
 					tmp.put("foundpercent", "100");
 					tmp.put("firstseentime", dateFormatter.format(new Date()));
 					tmp.put("lastseentime", dateFormatter.format(new Date()));
+					tmp.put("invtype",Integer.toString(mInvType));
 
 					if(mInvType > 0) {
 						byte[] irdata = tag.getIrData();
@@ -288,7 +285,12 @@ public class InventoryController {
 							tmp.put("irdata", NurApi.byteArrayToHexString(irdata));
 						else tmp.put("irdata", "");
 					}
+					else tmp.put("irdata","");
 
+					if(mAddGpsCoord) {
+						tmp.put("gps",AppTemplate.getAppTemplate().getLocation());
+					}
+					//Log.w("INV","Update type=" + mInvType + " epc="+tag.getEpcString() + " ir=" +tmp.get("irdata"));
 					tag.setUserdata(tmp);
 					mListViewAdapterData.add(tmp);
 
@@ -302,11 +304,19 @@ public class InventoryController {
 					tag = mTagStorage.getTag(tag.getEpc());
 					tmp = (HashMap<String, String>) tag.getUserdata();
 					tmp.put("rssi", Integer.toString(tag.getRssi()));
+
+					String rss = tmp.get("maxrssi");
+					int val = Integer.decode(rss);
+					if(tag.getRssi()>val)
+						tmp.put("maxrssi", Integer.toString(tag.getRssi()));
+
 					tmp.put("timestamp", Integer.toString(tag.getTimestamp()));
 					tmp.put("freq", Integer.toString(tag.getFreq())+" kHz (Ch: "+Integer.toString(tag.getChannel())+")");
 					tmp.put("found", Integer.toString(tag.getUpdateCount()));
 					tmp.put("foundpercent", Integer.toString((int) (((double) tag.getUpdateCount()) / (double) mStats.getInventoryRounds() * 100)));
 					tmp.put("lastseentime", dateFormatter.format(new Date()));
+					tmp.put("invtype",Integer.toString(mInvType));
+
 
 					if(mInvType > 0) {
 						byte[] irdata = tag.getIrData();
@@ -314,7 +324,12 @@ public class InventoryController {
 							tmp.put("irdata", NurApi.byteArrayToHexString(irdata));
 						else tmp.put("irdata", "");
 					}
+					else tmp.put("irdata","");
 
+					if(mAddGpsCoord)
+						tmp.put("gps",AppTemplate.getAppTemplate().getLocation());
+
+					//Log.w("INV","Update type=" + mInvType + " epc="+tag.getEpcString() + " ir=" +tmp.get("irdata"));
 					if (mInventoryListener != null)
 						mInventoryListener.tagFound(tag, false);
 				}
@@ -337,14 +352,37 @@ public class InventoryController {
 		}
 	}
 
+	public String Export(Context ctx) {
+
+		//Need to export readings first
+		LoadInventorySettings();
+		return ExportReadings(ctx, mPath);
+	}
+
+	public String getUriPath() {
+		return mPath;
+	}
+
+	public void SaveUriPath(String uriPath)
+	{
+		SharedPreferences settings = Main.getApplicationPrefences();
+		SharedPreferences.Editor settingEditor = null;
+		settingEditor = settings.edit();
+		settingEditor.putString("FilePath",uriPath);
+		settingEditor.apply();
+	}
+
 	public void LoadInventorySettings()
 	{
 		SharedPreferences settings = Main.getApplicationPrefences();
 
 		mDataWords = settings.getInt("DataLength",2);
 		mInvType = settings.getInt("InvType",0);
+		mReadTDTPureUri = settings.getBoolean("ReadPureUri",false);
+        mAddGpsCoord = settings.getBoolean("AddGpsCoord",false);
+		//mPath = settings.getString("FilePath","content://com.android.externalstorage.documents/tree/primary%3ADownload");
+		mPath = settings.getString("FilePath",Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
 
-		mExport = settings.getBoolean("ExportBool",false);
 		mTriggerDown = settings.getBoolean("TriggerDown",false);
 	}
 
@@ -421,6 +459,9 @@ public class InventoryController {
 
 		PrepareDataInventory();
 
+		if(mAddGpsCoord)
+			AppTemplate.getAppTemplate().refreshLocation();
+
         mInventoryRunning = true;
 		mApi.startInventoryStream();
 
@@ -450,6 +491,7 @@ public class InventoryController {
 
 			// Stop reading
 			if (mApi.isConnected()) {
+
 				mApi.stopInventoryStream();
 				NurIRConfig	ir = new NurIRConfig();
 				ir.IsRunning = false;
@@ -476,7 +518,7 @@ public class InventoryController {
 		mInventoryListener = l;
 	}
 
-	private void ExportReadings()
+	private String ExportReadings(Context ctx, String pathString)
 	{
 		final ArrayList<HashMap<String, String>> tags = mListViewAdapterData;
 
@@ -499,49 +541,147 @@ public class InventoryController {
 			filename += new SimpleDateFormat("ddMMyyyykkmmss").format(new Date());
 			filename += ".csv";
 
-			File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-			//File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-			//path.mkdirs();
+			if(!mPath.startsWith("content")) {
+				//Uri not selected yet. Use default  folder (Download)
+				File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+				File outputFile = new File(path, filename);
+				outputFile.createNewFile();
 
-			File outputFile = new File(path, filename);
-			outputFile.createNewFile();
+				FileWriter fileWriter = new FileWriter(outputFile, false);
+				if(mInvType == 0) {
+					if(mAddGpsCoord==false)
+						fileWriter.write("firstseen;lastseen;epc;rssi;maxrssi;found\n");
+					else fileWriter.write("firstseen;lastseen;epc;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n");
+				}
+				else if(mInvType == 1) {
+					if(mAddGpsCoord==false)
+						fileWriter.write("firstseen;lastseen;epc;tid;rssi;maxrssi;found\n");
+					else fileWriter.write("firstseen;lastseen;epc;tid;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n");
+				}
+				else if(mInvType == 2) {
+					if(mAddGpsCoord==false)
+						fileWriter.write("firstseen;lastseen;epc;user;rssi;maxrssi;found\n");
+					else fileWriter.write("firstseen;lastseen;epc;user;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n");
+				}
 
-			FileWriter fileWriter = new FileWriter(outputFile, false);
-			if(mInvType == 0)
-				fileWriter.write("firstseen;lastseen;epc;rssi\n");
-			else
-				fileWriter.write("firstseen;lastseen;epc;data;rssi\n");
+				for (HashMap<String, String> tag : tags)
+				{
+					fileWriter.append(tag.get("firstseentime") + ";");
+					fileWriter.append(tag.get("lastseentime") + ";");
+					fileWriter.append(tag.get("epc") + ";");
 
+					if(mInvType > 0) {
+						int iType=Integer.parseInt(tag.get("invtype"));
+						if(iType == mInvType) {
+							String ir = tag.get("irdata");
+							Log.w("INV","Type=" + mInvType + " ir=" + ir +" epc" + tag.get("epc"));
+							if (ir == null) ir = "";
+							else if (ir.startsWith("null") || ir.length() < 4)
+								ir = "";
+							ir += ";";
+							fileWriter.append(ir);
+						} else fileWriter.append(";");
+					}
+
+					fileWriter.append(tag.get("rssi") + ";");
+					fileWriter.append(tag.get("maxrssi") + ";");
+					if(mAddGpsCoord==false)
+						fileWriter.append(tag.get("found") + "\n");
+					else
+					{
+						fileWriter.append(tag.get("found") + ";");
+						fileWriter.append(tag.get("gps") + "\n");
+					}
+				}
+				fileWriter.close();
+				return "";
+			}
+
+
+			Uri treeUri = Uri.parse(mPath);
+			//ctx.getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+			//ctx.getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+			Log.w("SELECTED",mPath);
+			DocumentFile pickedDir = DocumentFile.fromTreeUri(ctx,treeUri);
+			Log.w("SELECTED",pickedDir.toString() + " filename=" + filename);
+			MimeTypeMap mimeTypeMap = MimeTypeMap.getSingleton();
+			DocumentFile newFile = pickedDir.createFile(mimeTypeMap.getMimeTypeFromExtension("csv"), filename);
+            Log.w("SELECTED","NewFile=" + newFile.getName());
+			OutputStream out = ctx.getContentResolver().openOutputStream(newFile.getUri());
+
+			if(mInvType == 0) {
+				if(mAddGpsCoord==false)
+					out.write("firstseen;lastseen;epc;rssi;maxrssi;found\n".getBytes());
+				else out.write("firstseen;lastseen;epc;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n".getBytes());
+			}
+			else if(mInvType == 1) {
+				if(mAddGpsCoord==false)
+					out.write("firstseen;lastseen;epc;tid;rssi;maxrssi;found\n".getBytes());
+				else out.write("firstseen;lastseen;epc;tid;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n".getBytes());
+			}
+			else if(mInvType == 2) {
+				if(mAddGpsCoord==false)
+					out.write("firstseen;lastseen;epc;user;rssi;maxrssi;found\n".getBytes());
+				else out.write("firstseen;lastseen;epc;user;rssi;maxrssi;found;GPSlatitude;GPSlongitude\n".getBytes());
+			}
 
 			for (HashMap<String, String> tag : tags)
 			{
-				fileWriter.append(tag.get("firstseentime") + ";");
-				fileWriter.append(tag.get("lastseentime") + ";");
-				fileWriter.append(tag.get("epc") + ";");
-				if(mInvType > 0)
-					fileWriter.append(tag.get("irdata") + ";");
+				String txt = tag.get("firstseentime") + ";";
+				out.write(txt.getBytes());
+				txt=tag.get("lastseentime") + ";";
+				out.write(txt.getBytes());
+				txt=tag.get("epc") + ";";
+				out.write(txt.getBytes());
 
-				fileWriter.append(tag.get("rssi") + "\n");
+				if(mInvType > 0) {
+					int iType=Integer.parseInt(tag.get("invtype"));
+					if(iType == mInvType) {
+						String ir = tag.get("irdata");
+						if (ir == null) ir = "";
+						else if (ir.startsWith("null") || ir.length() < 4)
+							ir = "";
+						ir += ";";
+						out.write(ir.getBytes());
+					} else
+					{
+						String ir=";";
+						out.write(ir.getBytes());
+
+					}
+				}
+
+				txt = tag.get("rssi") + ";";
+				out.write(txt.getBytes());
+				txt = tag.get("maxrssi") + ";";
+				out.write(txt.getBytes());
+
+				if(mAddGpsCoord==false) {
+					txt = tag.get("found") + "\n";
+					out.write(txt.getBytes());
+				}
+				else
+				{
+					txt = tag.get("found") + ";";
+					out.write(txt.getBytes());
+					txt = tag.get("gps") + "\n";
+					out.write(txt.getBytes());
+				}
 			}
-			fileWriter.close();
 
-
+			out.close();
 
 		} catch (Exception e) {
 			e.printStackTrace();
+			return e.getMessage();
+			//Toast.makeText(getActivity(), "Error:\n" + e.getMessage(), Toast.LENGTH_SHORT).show();
 		}
 
-
+		return "";
 	}
 
 
 	public void clearInventoryReadings() {
-
-		if(mExport)
-		{
-			//Need to export readings first
-			ExportReadings();
-		}
 
 		mAddedUnique = 0;
 		mApi.getStorage().clear();
@@ -647,66 +787,6 @@ public class InventoryController {
 
 		final Context _ctx = ctx;
 		final ArrayList<HashMap<String, String>> tags = mListViewAdapterData;
-		final Button exportAllTags = (Button) tagDialogLayout.findViewById(R.id.export_csv);
-		exportAllTags.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				dialog.dismiss();
-
-				try {
-
-					String postfix = "";
-					if (mApi.isConnected())
-					{
-						postfix = mApi.getReaderInfo().altSerial;
-						if (postfix.length() == 0) {
-							postfix = mApi.getReaderInfo().serial;
-						}
-						if (postfix.length() != 0) {
-							postfix += "_";
-						}
-					}
-
-					String filename = "epc_export_";
-					filename += postfix;
-					filename += new SimpleDateFormat("ddMMyyyykkmmss").format(new Date());
-					filename += ".csv";
-
-					File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-					path.mkdirs();
-
-					File outputFile = new File(path, filename);
-					outputFile.createNewFile();
-
-					FileWriter fileWriter = new FileWriter(outputFile, true);
-					fileWriter.append("firstseen;lastseen;epc;rssi\n");
-
-					for (HashMap<String, String> tag : tags)
-					{
-						fileWriter.append(tag.get("firstseentime") + ";");
-						fileWriter.append(tag.get("lastseentime") + ";");
-						fileWriter.append(tag.get("epc") + ";");
-						fileWriter.append(tag.get("rssi") + "\n");
-					}
-					fileWriter.close();
-
-					Uri providerUri = CompatFileProvider.getUriForFile(_ctx, "com.nordicid.fileprovider.public", outputFile);
-
-					Log.i("outputFile", "= " + Uri.fromFile(outputFile));
-					Log.i("providerUri", "= " + providerUri);
-
-					Intent intent2 = new Intent();
-					intent2.setAction(Intent.ACTION_SEND);
-					intent2.setType("text/plain");
-					intent2.putExtra(Intent.EXTRA_STREAM, providerUri);
-					_ctx.startActivity(Intent.createChooser(intent2, _ctx.getString(R.string.share_via)));
-
-				} catch (Exception e) {
-					e.printStackTrace();
-					Toast.makeText(_ctx, "Error:\n" + e.getMessage(), Toast.LENGTH_SHORT).show();
-				}
-			}
-		});
 
 		dialog.show();
 	}

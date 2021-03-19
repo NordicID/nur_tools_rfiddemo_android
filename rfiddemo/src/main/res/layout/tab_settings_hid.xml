@@ -14,7 +14,13 @@
 	    android:paddingBottom="20dp"
 		>
 
-			<TextView
+		<LinearLayout
+			android:id="@+id/sp_layout"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="vertical">
+
+		<TextView
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
 				android:text="Nordic ID Smart Pair" />
@@ -24,7 +30,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:enabled="true"
-                android:text="Show Smart Pair connection user interface" />
+                android:text="Show Smart Pair connection screen" />
 
             <CheckBox
                 android:id="@+id/sp_autodiscon_exa51"
@@ -38,9 +44,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:enabled="true"
-                android:text="Make connect more sensitive (helps with devices with insensitive bluetooth antenna)"
+                android:text="High sensitivity mode (enable if connecting with host device is difficult)"
                 android:textAlignment="viewStart" />
-	    
+		</LinearLayout>
 	        <TextView
 	            android:layout_width="wrap_content"
 	            android:layout_height="wrap_content"
@@ -86,8 +92,35 @@
 				android:layout_width="match_parent"
 				android:layout_height="wrap_content"
 				android:enabled="true"
-				android:text="Enable pairing (Note: device reboots after change this feature)" />
+				android:text="Enable pairing (device rebooting)" />
 
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="horizontal">
+		<Button
+			android:id="@+id/buttonSetPasskey"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_weight="1"
+			android:text="Set Passkey" />
+		<Button
+			android:id="@+id/buttonBond"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_weight="1"
+			android:text="Pair" />
+	</LinearLayout>
+
+		<Space
+			android:layout_width="match_parent"
+			android:layout_height="20dp"/>
+
+		<Button
+			android:id="@+id/buttonReboot"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:text="Reboot device" />
 
 
 	</LinearLayout>

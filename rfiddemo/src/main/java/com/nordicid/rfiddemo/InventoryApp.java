@@ -6,11 +6,15 @@ import com.nordicid.apptemplate.SubApp;
 import com.nordicid.controllers.InventoryController;
 import com.nordicid.controllers.InventoryController.InventoryControllerListener;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
+import com.nordicid.nurapi.ACC_SENSOR_SOURCE;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventIOChange;
 import com.nordicid.nurapi.NurTag;
 import com.nordicid.nurapi.NurTagStorage;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,6 +30,8 @@ import android.widget.Toast;
 
 public class InventoryApp extends SubApp {
 
+	private final int REQUEST_CODE_OPEN_DIRECTORY = 44;
+
     private TextView mInventoryCountTextView;
     private TextView mInventoryTagsInTime;
     private TextView mInventoryMaxTagsPerSecond;
@@ -37,6 +43,8 @@ public class InventoryApp extends SubApp {
 	private View mView;
 
 	long mLastUpdateTagCount = 0;
+	long mLastExportedCount = 0;
+
 	Handler mHandler;
 
 	private InventoryController mInventoryController;
@@ -126,12 +134,34 @@ public class InventoryApp extends SubApp {
 			@Override
 			public void IOChangeEvent(NurEventIOChange event) {
 				// Handle BLE trigger
+
+				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE && event.direction == 1)
+				{
+					//Trigger down
+					if (!mInventoryController.isInventoryRunning())
+						startInventory();
+					else stopInventory();
+				}
 				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE && event.direction == 0)
 				{
-					if (mInventoryController.isInventoryRunning())
-						stopInventory();
-					else {
+					//Trigger released
+					if (mInventoryController.isInventoryRunning()) {
+
+						if(mInventoryController.mTriggerDown)
+							stopInventory();
+					}
+				}
+				else if(event.source == ACC_SENSOR_SOURCE.ToFSensor.getNumVal()) {
+					//ToF sensor of EXA21 has triggered GPIO event
+					// Direction goes 0->1 when sensors reads less than Range Lo filter (unit: mm)
+					// Direction goes 1->0 when sensors reads more than Range Hi filter (unit: mm)
+					if(event.direction == 1) {
+						//There are something front of EXA21 ToF sensor, let's start inventory
 						startInventory();
+					}
+					else {
+						//Nothing seen at front of ToF sensor. It's time to stop inventory.
+						stopInventory();
 					}
 				}
 			}
@@ -154,6 +184,7 @@ public class InventoryApp extends SubApp {
 		mInventoryController.clearInventoryReadings();
 		mFoundTagsListViewAdapter.notifyDataSetChanged();
 		mLastUpdateTagCount = 0;
+		mLastExportedCount = 0;
 		updateStats(mInventoryController);
 	}
 
@@ -162,7 +193,7 @@ public class InventoryApp extends SubApp {
 		super.onViewCreated(view, savedInstanceState);
 		
 		mView = view;
-		
+
 		//Start/stop button
 		mStartStopInventory = addButtonBarButton(getString(R.string.start), new OnClickListener() {
 			@Override
@@ -181,13 +212,50 @@ public class InventoryApp extends SubApp {
 		}
 			
 		// Clear button and alertdialog
+
 		addButtonBarButton(getString(R.string.clear), new OnClickListener(){
 			@Override
 			public void onClick(View v) {
 				clearReadings();
 			}
 		});
-		
+
+
+		addButtonBarButton(getString(R.string.export), new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (mInventoryController.isInventoryRunning()) {
+					Toast.makeText(getActivity(), getString(R.string.export_stop_first), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				mLastUpdateTagCount = mInventoryController.getTagStorage().size();
+
+				if(mLastUpdateTagCount == 0) {
+					Toast.makeText(getActivity(), getString(R.string.export_nothing), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				if(mLastUpdateTagCount == mLastExportedCount) {
+					Toast.makeText(getActivity(), getString(R.string.export_already), Toast.LENGTH_SHORT).show();
+					return;
+				}
+
+				String ret=mInventoryController.Export(getActivity().getApplicationContext());
+				if(!ret.isEmpty()) {
+					Toast.makeText(getActivity(), "Error occurred!: " + ret, Toast.LENGTH_LONG).show();
+					selectFolder();
+					return;
+				}
+				else {
+					Toast.makeText(getActivity(), getString(R.string.export_success), Toast.LENGTH_LONG).show();
+				}
+
+				mLastExportedCount = mLastUpdateTagCount;
+			}
+		});
+
+
 		// statistics UI
         mInventoryCountTextView = (TextView) mView.findViewById(R.id.num_of_tags_textview);
         mInventoryAvgTagPerSecond = (TextView) mView.findViewById(R.id.average_tags_per_second_textview);
@@ -223,9 +291,41 @@ public class InventoryApp extends SubApp {
 
 		updateStats(mInventoryController);
 	}
-	
+
+	public void selectFolder()
+	{
+		Main.getInstance().setDoNotDisconnectOnStop(true);
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+		startActivityForResult(intent,  REQUEST_CODE_OPEN_DIRECTORY);
+		Toast.makeText(getActivity(), "Specify folder for exporting data", Toast.LENGTH_LONG).show();
+	}
+
+	@Override
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+
+		if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == Activity.RESULT_OK) {
+
+			Uri treeUri = data.getData();
+			String mPath = treeUri.toString();
+			mInventoryController.SaveUriPath(mPath);
+			String ret=mInventoryController.Export(getActivity().getApplicationContext());
+			if(!ret.isEmpty()) {
+				Toast.makeText(getActivity(), "Error occurred!: " + ret, Toast.LENGTH_LONG).show();
+				return;
+			}
+			else {
+				Toast.makeText(getActivity(), getString(R.string.export_success), Toast.LENGTH_LONG).show();
+				mLastExportedCount = mLastUpdateTagCount;
+			}
+		}
+
+		Main.getInstance().setDoNotDisconnectOnStop(false);
+	}
+
 	public void startInventory() {
 		try {
+			mLastExportedCount = 0;
 			if (!mInventoryController.startContinuousInventory()) {
 				Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
 			}

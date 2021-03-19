@@ -4,24 +4,19 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.text.Layout;
+import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nordicid.apptemplate.AppTemplate;
-import com.nordicid.nuraccessory.NurAccessoryConfig;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
-import com.nordicid.nuraccessory.NurAccessoryVersionInfo;
-
+import com.nordicid.nurapi.ACC_IMAGER_TYPE;
+import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
@@ -52,7 +47,7 @@ public class SettingsAppImagerTab extends Fragment
     SettingsAppTabbed mOwner;
     NurApi mApi;
 
-    NurAccessoryExtension mExt;
+    AccessoryExtension mExt;
 
     private TextView mTextTop;
     private Button mOpenCfgFile;
@@ -132,8 +127,23 @@ public class SettingsAppImagerTab extends Fragment
 
     private void enableItems() {
 
+        boolean supported=false;
+
         if (mApi.isConnected()) {
             if (Main.getAppTemplate().getAccessorySupported()) {
+                //There is accessories but is there imager..
+                try {
+                    if (Main.getAppTemplate().getAccessoryApi().getConfig().hasImagerScanner()) {
+                        supported = true;
+                    }
+                }
+                catch (Exception e) {
+                    Toast.makeText(getActivity(), "Error:\n" + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+
+            }
+
+            if(supported) {
                 mTextTop.setText("Load Imager configuration from file");
                 mOpenCfgFile.setVisibility(View.VISIBLE);
                 mBarcodeTest.setVisibility(View.VISIBLE);
@@ -146,6 +156,7 @@ public class SettingsAppImagerTab extends Fragment
                 mUserGuideLink.setVisibility(View.INVISIBLE);
                 mLinkHeader.setVisibility(View.INVISIBLE);
             }
+
         }
     }
 
@@ -244,7 +255,7 @@ public class SettingsAppImagerTab extends Fragment
                 Log.e("0","IMG cfg=" + line);
                 try
                 {
-                    byte arr[] = mExt.imagerCmd(line, 0);
+                    byte arr[] = mExt.imagerCmd(line, ACC_IMAGER_TYPE.Opticon);
                     if(arr == null)
                     {
                         //mEditText.setText("Config failed! (invalid config string)");
@@ -289,7 +300,7 @@ public class SettingsAppImagerTab extends Fragment
                 //Save codes to Imager flash(Opticon)
                 line = "@MENU_OPTO@ZZ@Z2@ZZ@OTPO_UNEM@";
                 try {
-                    byte rsp[] = mExt.imagerCmd(line, 0);
+                    byte rsp[] = mExt.imagerCmd(line, ACC_IMAGER_TYPE.Opticon);
                     if (rsp == null) {
                         Toast.makeText(getActivity(), "Saving configuration failed! (no response)", Toast.LENGTH_SHORT).show();
                         //mEditText.setText("Saving configuration failed! (no response)");

@@ -28,6 +28,12 @@
     <string name="start">START</string>
     <string name="stop">STOP</string>
     <string name="clear">CLEAR</string>
+    <string name="export">EXPORT</string>
+    <string name="export_stop_first">Stop inventory first..</string>
+    <string name="export_nothing">Nothing to export</string>
+    <string name="export_already">Already exported</string>
+    <string name="export_success">Tags exported successfully</string>
+
     <string name="locate">LOCATE</string>
     <string name="locate_tag">Locate tag</string>
     <string name="text_tam2">TAG AUTHENTICATION METHOD 2</string>
@@ -39,8 +45,8 @@
     <string name="restore">Restore</string>
     <string name="update_fw">Update NUR firmware</string>
     <string name="update_bth">Update bluetooth firmware</string>
-    <string name="file_picker">Local storage</string>
-    <string name="file_picker_remote">NORDIC ID Servers</string>
+    <string name="file_picker">Local storage...</string>
+    <string name="file_picker_remote">START UPDATE</string>
     <string name="upload_firmware">upload NUR firmware</string>
     <string name="bth_update_firmware">Update Bth firmware</string>
     <string name="file_name">File Name</string>
@@ -61,14 +67,16 @@
     <string name="about_dialog_serial">NUR serial number:</string>
     <string name="about_dialog_device_serial">Device serial number:</string>
     <string name="about_dialog_bootloader">NUR bootloader:</string>
+    <string name="about_dialog_sec_chip">Secondary chip:</string>
     <string name="about_dialog_accessory">Device firmware:</string>
     <string name="about_dialog_accessory_bldr">Device bootloader:</string>
     <string name="about_dialog_nurapi">NurApi version:</string>
+    <string name="about_dialog_updatelib">NurUpdateLib version:</string>
     <string name="about_dialog_app">App version:</string>
     <string name="about_dialog_conn_info">Device connection info:</string>
 
     <string name="write_tag_hint">Select a tag to write</string>
-    <string name="locatable_epc_hint">Select EPC to locate from list</string>
+    <string name="locatable_epc_hint">Select EPC to locate from list or edit</string>
     <string name="new_epc_hint">New EPC..</string>
 
     <string name="location_stopped">Trace stopped</string>
@@ -150,7 +158,8 @@
 
     <string name="text_key_set_loaded">Loaded %1$d keys, using set %2$d</string>
 
-    <string name="text_export_info">While clearing tag list, tag\'s will be saved into the download folder as new file named as:\n\'epc_export_&lt;device serial>_&lt;timestamp>.csv\'</string>
+    <string name="text_export_info">When EXPORT button pressed, list of tag\'s will be saved into the selected folder as new file named as:</string>
+    <string name="text_export_format">\'epc_export_&lt;device serial>_&lt;timestamp>.csv\'</string>
     <string name="device_boot_mode">Device in boot mode please run the update NUR firmware app first</string>
 
 
@@ -166,35 +175,8 @@
     <string name="barcode_no_result">No available results</string>
 
     <!-- Updates App -->
-    <string name="nur_update">NUR firmware update</string>
-    <string name="dfu_update">Device update</string>
-    <string name="dfu_bldr_update">Device bootloader update</string>
-    <string name="nur_app_update">NUR update</string>
-    <string name="nur_bldr_update">NUR bootloader update</string>
-    <string name="start_update">Start update</string>
-    <string name="update_connected">Connected to device</string>
-    <string name="update_connecting">Connecting to device</string>
-    <string name="update_disconnected">Disconnected from device</string>
-    <string name="update_aborted">Update interrupted</string>
-    <string name="update_validating_fw">Validating firmware</string>
-    <string name="update_starting">Update service starting</string>
-    <string name="update_started">Update service started</string>
-    <string name="update_running">Updating device</string>
-    <string name="update_disconnecting">Disconnecting from device</string>
-    <string name="ready_wait_boot">Ready, wait for boot&#8230;</string>
-    <string name="update_complete">Update complete</string>
-    <string name="initiating_update">Starting update</string>
-    <string name="device_not_ready">Device not yet ready</string>
-    <string name="file_check_failed">Selected file check failed!</string>
-    <string name="no_file_selected">No file selected</string>
-    <string name="update_invalid_file">Invalid update file</string>
-    <string name="update_dialog_title">Available Updates</string>
-    <string name="update_list_text">Select update</string>
-    <string name="ui_blocked">UI blocked during update. Do not close the application or switch to another while it\'s running.</string>
-    <string name="update_state_idle">Update Service idle</string>
-    <string name="looking_for_device" >Looking for device</string>
-    <string name="update_file_source" >Update file source</string>
-    <string name="dfu_finished" >Update finished. Please wait until device restart (~30sec)</string>
+    <string name="update_tab_header" >Device Update</string>
+    <string name="update_buttons_header" >Update device from file (*.zip)</string>
 
     <!-- Update sources -->
     <string name="DFU_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/Applicationfirmwares.json</string>
@@ -202,7 +184,7 @@
     <string name="DFU_TEST_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/TestApplicationfirmwares.json</string>
     <string name="DFU_TEST_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/TestBootloaderfirmwares.json</string>
     <string name="NUR_APP_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_firmware/master/firmwares.json</string>
-    <string name="NUR_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_exa_firmware/master/firmwares.json</string>
+    <string name="NUR_BLDR_SRC" translatable="false">https://raw.githubusercontent.com/NordicID/nur_firmware/master/bootloaders.json</string>
     <string name="export_csv">Export and share inventory list as CSV file</string>
     <string name="share_via">Share via</string>
     <string name="connection_details">Connection Details</string>

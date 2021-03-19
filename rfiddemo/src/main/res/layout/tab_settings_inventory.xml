@@ -41,20 +41,57 @@
 
         <Space
             android:layout_width="match_parent"
-            android:layout_height="20dp"
+            android:layout_height="10dp"
             android:layout_weight="1" />
 
         <CheckBox
-            android:id="@+id/checkBoxExport"
+            android:id="@+id/checkBoxShowPureUri"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Export to file" />
+            android:text="Show EPC Tag URI (GS1 coded tags)" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="20dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/textExport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Exporting tag list to file" />
+
+        <Button
+            android:id="@+id/buttonBrowseFolder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select export folder..." />
+
+        <TextView
+            android:id="@+id/textPath"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/colorAccent"
+            android:text="PathToDownloadFolder"/>
 
         <TextView
             android:id="@+id/textExportInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/text_export_info"/>
+
+        <TextView
+            android:id="@+id/textCsvFormat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#0000FF"
+            android:text="@string/text_export_format"/>
+
+        <CheckBox
+            android:id="@+id/checkBoxExportLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Add GPS coordinate to tag info" />
 
         <Space
             android:layout_width="match_parent"

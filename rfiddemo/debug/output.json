@@ -1,1 +1,1 @@
-[{"outputType":{"type":"APK"},"apkInfo":{"type":"MAIN","splits":[],"versionCode":112},"path":"NordicID_RFIDDemo_debug_v1.1.2.apk","properties":{"packageId":"com.nordicid.rfiddemo","split":"","minSdkVersion":"21"}}]
+[{"outputType":{"type":"APK"},"apkInfo":{"type":"MAIN","splits":[],"versionCode":140,"versionName":"1.3.0","enabled":true,"outputFile":"NordicID_RFIDDemo_debug_v1.3.0.apk","fullName":"debug","baseName":"debug"},"path":"NordicID_RFIDDemo_debug_v1.3.0.apk","properties":{}}]

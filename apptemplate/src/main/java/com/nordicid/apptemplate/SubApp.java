@@ -4,7 +4,7 @@ import com.nordicid.nurapi.*;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -175,23 +175,7 @@ public class SubApp extends Fragment {
 	public boolean onFragmentBackPressed() {
 		return false;
 	}
-	
-	/*@Override
-	public void onDetach() {
-		super.onDetach();
-		
-		//Workaround for known bug with v4 support library and fragmentTabHost
-		try {
-			Field childFragmentManager = Fragment.class.getDeclaredField("mChildFragmentManager");
-			childFragmentManager.setAccessible(true);
-			childFragmentManager.set(this, null);
-		} catch (NoSuchFieldException e) {
-			throw new RuntimeException(e);
-		} catch (IllegalAccessException e) {
-			throw new RuntimeException(e);
-		}
-	}*/
-	
+
 	/*
 	 * NUR API listener stuff.
 	 * Override these as necessary in various sub-applications.

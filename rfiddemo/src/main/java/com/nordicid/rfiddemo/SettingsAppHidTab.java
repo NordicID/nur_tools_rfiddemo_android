@@ -1,15 +1,27 @@
 package com.nordicid.rfiddemo;
 
+import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
+
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -17,7 +29,13 @@ import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.nuraccessory.NurAccessoryConfig;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
 import com.nordicid.nuraccessory.NurAccessoryVersionInfo;
+import com.nordicid.nurapi.ACC_WIRELESS_CHARGE_STATUS;
+import com.nordicid.nurapi.AccConfig;
+import com.nordicid.nurapi.AccVersionInfo;
+import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
+import com.nordicid.nurapi.NurApiAutoConnectTransport;
+import com.nordicid.nurapi.NurApiBLEAutoConnect;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
 import com.nordicid.nurapi.NurEventClientInfo;
@@ -37,24 +55,35 @@ import com.nordicid.nurapi.NurSmartPairSupport;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.reflect.Method;
+import java.util.Set;
+
 public class SettingsAppHidTab extends Fragment {
 	SettingsAppTabbed mOwner;
 
+	final private String TAG = "HIDTAB";
+
 	NurApi mApi;
-	NurAccessoryExtension mExt;
+	AccessoryExtension mExt;
+	BluetoothDevice device=null;
 
 	boolean mHasWirelessCharging = false;
+	boolean mBondFound = false;
 	
 	CheckBox mHidBarcodeCheckBox;
 	CheckBox mHidRFIDCheckBox;
 	CheckBox mWirelessChargingCheckBox;
     CheckBox mAllowPairingCheckBox;
 
+    LinearLayout mSpLayout;
 	CheckBox mSpShowUiCheckBox;
 	CheckBox mSpAutodisconExa51CheckBox;
     CheckBox mSpSensitivityCheckBox;
-
 	TextView mWirelessChargingLabel;
+
+	Button mButtonSetPasskey;
+	Button mButtonBond;
+	Button mButtonRebootDevice;
 	
 	private NurApiListener mThisClassListener = null;
 	
@@ -127,10 +156,138 @@ public class SettingsAppHidTab extends Fragment {
 			}
 		}
 	}
-	
+
+	void passkeyInput()
+	{
+		final AlertDialog regAlertDlg;
+
+		try {
+			if (mExt.getConfig().isDeviceEXA21() == false) {
+				Toast.makeText(getContext(), "Sorry, for EXA21 only", Toast.LENGTH_LONG).show();
+				return;
+			}
+		}catch (Exception e) {
+			Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+		builder.setTitle("EXA21 6-digit passkey");
+
+		final EditText input = new EditText(getContext());
+		input.setInputType(InputType.TYPE_CLASS_NUMBER); // | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+		int maxLength = 6;
+		input.setFilters(new InputFilter[] {new InputFilter.LengthFilter(maxLength)});
+		try {
+			input.setText(mExt.getBLEPasskey());
+		}catch (Exception e) {}
+		builder.setView(input);
+
+		builder.setPositiveButton("SET", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				try {
+					mExt.setBLEPasskey(input.getText().toString());
+					String txt = mExt.getBLEPasskey();
+					Toast.makeText(getContext(), "Passkey=" + txt, Toast.LENGTH_LONG).show();
+				}
+				catch (Exception e) {
+					Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+				}
+			}
+		});
+		builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.cancel();
+			}
+		});
+
+		regAlertDlg = builder.create();
+		regAlertDlg.show();
+
+		input.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+			}
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+				if(s.length() == 6) {
+					regAlertDlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+				}
+				else  regAlertDlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+			}
+
+			@Override
+			public void afterTextChanged(Editable s) {
+
+			}
+		});
+	}
+
+	void iterateBluetoothDevices() {
+		mBondFound=false;
+		try {
+			BluetoothAdapter btAdapter = BluetoothAdapter.getDefaultAdapter();
+			NurApiAutoConnectTransport mTr = Main.getInstance().getAutoConnectTransport();
+			if (btAdapter != null) {
+				device = btAdapter.getRemoteDevice(mTr.getAddress());
+				Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
+				Log.i(TAG, String.format("found %d bluetooth devices", (pairedDevices != null) ? pairedDevices.size() : 0));
+				if (pairedDevices.size() > 0) {
+					for (BluetoothDevice d : pairedDevices) {
+
+						if (mTr.getAddress().equals(d.getAddress())) {
+							//Bonded device found
+							mBondFound = true;
+							String btID = String.format("bluetooth device [%s]  type: %s BondState=%d Addr=%s thisAddr=%s", d.getName(), d.getType(), d.getBondState(), d.getAddress(), mTr.getAddress());
+							Log.i(TAG, btID);
+							btID = String.format("bluetoothDevice [%s]", device.getAddress());
+							Log.i(TAG, btID);
+							break;
+						}
+						//Toast.makeText(this, btID, Toast.LENGTH_SHORT).show();
+					}
+				}
+			}
+		}catch (Exception ex) {
+			Log.e(TAG, ex.getMessage());
+		}
+	}
+
+	private void pairDevice(BluetoothDevice device) {
+		try {
+
+			Log.i(TAG, "Pairing...");
+
+			//waitingForBonding = true;
+
+			Method m = device.getClass().getMethod("createBond", (Class[]) null);
+			m.invoke(device, (Object[]) null);
+
+			Log.i(TAG, "Pairing done.");
+		} catch (Exception e) {
+			Log.e(TAG, e.getMessage());
+		}
+	}
+
+	private void unpairDevice(BluetoothDevice device) {
+		try {
+			Method m = device.getClass().getMethod("removeBond", (Class[]) null);
+			m.invoke(device, (Object[]) null);
+		} catch (Exception e) {
+			Log.e(TAG, e.getMessage());
+		}
+	}
+
 	private void enableItems(boolean v) {
 		mHidBarcodeCheckBox.setEnabled(v);
 		mHidRFIDCheckBox.setEnabled(v);
+		mButtonSetPasskey.setEnabled(v);
+		mButtonBond.setEnabled(v);
+		mButtonRebootDevice.setEnabled(v);
 		mWirelessChargingCheckBox.setEnabled(v);
 		mAllowPairingCheckBox.setEnabled(v);
 	}
@@ -170,7 +327,6 @@ public class SettingsAppHidTab extends Fragment {
 			mHidRFIDCheckBox.setOnCheckedChangeListener(mOnCheckedChangeListener);
 			mWirelessChargingCheckBox.setOnCheckedChangeListener(mWirelessChargingChangeListener);
 			mAllowPairingCheckBox.setOnCheckedChangeListener(mAllowPairingChangeListener);
-
 			mSpShowUiCheckBox.setOnCheckedChangeListener(mSpShowUiChangeListener);
 			mSpAutodisconExa51CheckBox.setOnCheckedChangeListener(mSpAutodisconExa51ChangeListener);
 			mSpSensitivityCheckBox.setOnCheckedChangeListener(mSpSensitivityChangeListener);
@@ -179,7 +335,6 @@ public class SettingsAppHidTab extends Fragment {
 			mHidRFIDCheckBox.setOnCheckedChangeListener(null);
 			mWirelessChargingCheckBox.setOnCheckedChangeListener(null);
 			mAllowPairingCheckBox.setOnCheckedChangeListener(null);
-
 			mSpShowUiCheckBox.setOnCheckedChangeListener(null);
 			mSpAutodisconExa51CheckBox.setOnCheckedChangeListener(null);
 			mSpSensitivityCheckBox.setOnCheckedChangeListener(null);
@@ -191,10 +346,11 @@ public class SettingsAppHidTab extends Fragment {
 
 		if (mApi.isConnected() && AppTemplate.getAppTemplate().getAccessorySupported())
 		{
-			NurAccessoryConfig cfg;
+			AccConfig cfg;
 			try {
+				enableItems(true);
 				cfg = mExt.getConfig();
-				NurAccessoryVersionInfo info = mExt.getFwVersion();
+				AccVersionInfo info = mExt.getFwVersion();
 				String appver = removeSpecificChars(info.getApplicationVersion(), ".");
 
 				int ver = Integer.parseInt(appver);
@@ -209,14 +365,51 @@ public class SettingsAppHidTab extends Fragment {
 				if (addr != null && addr.equals("integrated_reader")) {
 					mHidBarcodeCheckBox.setEnabled(false);
 					mHidRFIDCheckBox.setEnabled(false);
+					mButtonSetPasskey.setEnabled(false);
+					mButtonBond.setEnabled(false);
+					mAllowPairingCheckBox.setEnabled(false);
 				}
 
-				mHidBarcodeCheckBox.setChecked(cfg.getHidBarCode());
+				if(cfg.isDeviceEXA51()) {
+					mSpAutodisconExa51CheckBox.setEnabled(true);
+				}
+				else mSpAutodisconExa51CheckBox.setEnabled(false);
+
+				if(cfg.hasImagerScanner() && cfg.getAllowPairingState())
+					mHidBarcodeCheckBox.setChecked(cfg.getHidBarCode());
+				else mHidBarcodeCheckBox.setEnabled(false);
+
 				mHidRFIDCheckBox.setChecked(cfg.getHidRFID());
+				if(cfg.isDeviceEXA21())
+					mHidRFIDCheckBox.setEnabled(true); //USB is possible even if not BLE paired
+
+				if(cfg.getAllowPairingState())
+				{
+					if(cfg.isDeviceEXA21()) {
+						mButtonSetPasskey.setEnabled(true);
+					}
+					else
+						mButtonSetPasskey.setEnabled(false);
+
+					mButtonBond.setEnabled(true);
+
+					if(mBondFound){
+						mButtonBond.setText("Unpair");
+						mAllowPairingCheckBox.setEnabled(false);
+					}
+					else {
+						mButtonBond.setText("Pair");
+						mAllowPairingCheckBox.setEnabled(true);
+					}
+				}
+				else {
+					mButtonSetPasskey.setEnabled(false);
+					mButtonBond.setEnabled(false);
+					mBondFound=false;
+				}
+
 				mWirelessChargingCheckBox.setEnabled(cfg.hasWirelessCharging());
 				mAllowPairingCheckBox.setChecked(cfg.getAllowPairingState());
-
-				enableItems(true);
 			}
 			catch (Exception e) {
 				e.printStackTrace();
@@ -260,9 +453,16 @@ public class SettingsAppHidTab extends Fragment {
 	void setNewHidConfig()
 	{
 		try {
-			NurAccessoryConfig cfg = mExt.getConfig();
+			AccConfig cfg = mExt.getConfig();
 			cfg.setHidBarcode(mHidBarcodeCheckBox.isChecked());
 			cfg.setHidRFID(mHidRFIDCheckBox.isChecked());
+
+			//if(mHidRFIDCheckBox.isChecked()) {
+				mButtonRebootDevice.setVisibility(View.VISIBLE); //Allow user
+				//cfg.setAllowPairingState(true);
+				//mAllowPairingCheckBox.setChecked(true);
+			//}
+
 			mExt.setConfig(cfg);
 			readCurrentSetup();
 		} catch (Exception e) {
@@ -274,12 +474,29 @@ public class SettingsAppHidTab extends Fragment {
 	void setNewAllowPairingConfig()
 	{
 		try {
-			NurAccessoryConfig cfg = mExt.getConfig();
+			AccConfig cfg = mExt.getConfig();
 			cfg.setAllowPairingState(mAllowPairingCheckBox.isChecked());
 			mExt.setConfig(cfg);
 			readCurrentSetup();
+			/*
+			if(cfg.isDeviceEXA21())
+				mButtonSetPasskey.setEnabled(cfg.getAllowPairingState());
+			else mButtonSetPasskey.setEnabled(false);
+			*/
+			//Toast.makeText(getContext(), "Rebooting device required!", Toast.LENGTH_LONG).show();
 
-			Toast.makeText(AppTemplate.getAppTemplate(),"Rebooting device..", Toast.LENGTH_SHORT).show();
+			if(cfg.getAllowPairingState()==false && mBondFound) {
+				//device paired and now user want to disable pairing.
+				//Unpair and give reset
+				mExt.clearPairingData();
+				unpairDevice(device);
+				Toast.makeText(AppTemplate.getAppTemplate(),"Unpairing and rebooting device..", Toast.LENGTH_SHORT).show();
+				mBondFound=false;
+			}
+			else {
+				Toast.makeText(AppTemplate.getAppTemplate(), "Rebooting device..", Toast.LENGTH_SHORT).show();
+			}
+
 			mExt.restartBLEModule();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -321,23 +538,26 @@ public class SettingsAppHidTab extends Fragment {
 		public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 			try {
 				String msg;
-				int result = mExt.setWirelessChargingOn(mWirelessChargingCheckBox.isChecked());
+				ACC_WIRELESS_CHARGE_STATUS result = mExt.setWirelessCharge(mWirelessChargingCheckBox.isChecked());
 				Log.d("SetWirelessCharging","result " + result);
 				switch (result)
 				{
-					case NurAccessoryExtension.WIRELESS_CHARGING_FAIL:
-					case NurAccessoryExtension.WIRELESS_CHARGING_REFUSED:
+					case Fail:
+					case Refused:
 						msg = "Failed to set wireless charging value";
 						break;
-					case NurAccessoryExtension.WIRELESS_CHARGING_NOT_SUPPORTED:
+					case NotSupported:
 						msg = "Wireless Charging not supported";
 						break;
 					default:
-						msg = "Wireless charging turned " + ((result == NurAccessoryExtension.WIRELESS_CHARGING_ON) ? "On" : "Off");
+						msg = "Wireless charging turned " + ((result == ACC_WIRELESS_CHARGE_STATUS.On) ? "On" : "Off");
 						break;
 				}
 				mWirelessChargingCheckBox.setOnCheckedChangeListener(null);
-				mWirelessChargingCheckBox.setChecked(mExt.isWirelessChargingOn());
+
+				if(mExt.getWirelessChargeStatus() == ACC_WIRELESS_CHARGE_STATUS.On)
+					mWirelessChargingCheckBox.setChecked(true);
+				else mWirelessChargingCheckBox.setChecked(false);
 				Toast.makeText(AppTemplate.getAppTemplate(),msg, Toast.LENGTH_SHORT).show();
 			}
 			catch (Exception e)
@@ -404,15 +624,94 @@ public class SettingsAppHidTab extends Fragment {
 		mWirelessChargingCheckBox = (CheckBox)view.findViewById(R.id.hid_wireless_charging_checkbox);
 		mAllowPairingCheckBox = (CheckBox)view.findViewById(R.id.allow_pairing_checkbox);
         mWirelessChargingLabel = (TextView)view.findViewById(R.id.hid_wireless_charging_label);
+        mButtonSetPasskey = (Button)view.findViewById(R.id.buttonSetPasskey);
+        mButtonBond = (Button)view.findViewById(R.id.buttonBond);
 
+        mButtonRebootDevice = (Button)view.findViewById(R.id.buttonReboot);
+		mButtonRebootDevice.setVisibility(View.INVISIBLE);
+
+        mSpLayout = (LinearLayout) view.findViewById(R.id.sp_layout);
 		mSpShowUiCheckBox = (CheckBox) view.findViewById(R.id.sp_showui);
         mSpAutodisconExa51CheckBox = (CheckBox) view.findViewById(R.id.sp_autodiscon_exa51);
         mSpSensitivityCheckBox = (CheckBox) view.findViewById(R.id.sp_sensitivity);
+
+        if (!NurSmartPairSupport.isSupported())
+            mSpLayout.setVisibility(View.GONE);
+
+        iterateBluetoothDevices();
+
+        mButtonSetPasskey.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				passkeyInput();
+			}
+		});
+
+        mButtonRebootDevice.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				try {
+					Toast.makeText(AppTemplate.getAppTemplate(),"Rebooting device..", Toast.LENGTH_SHORT).show();
+					mExt.restartBLEModule();
+					mButtonRebootDevice.setVisibility(View.INVISIBLE);
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+					Toast.makeText(AppTemplate.getAppTemplate(),"Operation failed", Toast.LENGTH_SHORT).show();
+				}
+			}
+		});
+
+        mButtonBond.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if(mBondFound) {
+					//Need to Unpair
+					try {
+						mExt.clearPairingData();
+						unpairDevice(device);
+						Toast.makeText(AppTemplate.getAppTemplate(),"Unpair success. Rebooting device..", Toast.LENGTH_LONG).show();
+						mBondFound=false;
+						mButtonBond.setText("Pair");
+					}catch (Exception e) {
+						e.printStackTrace();
+						Toast.makeText(AppTemplate.getAppTemplate(),"Unpair failed:" + e.getMessage(), Toast.LENGTH_LONG).show();
+					}
+				}
+				else {
+					//Try to pair device
+					if(device!=null) {
+						try {
+							//mExt.clearPairingData();
+							AccConfig cfg=mExt.getConfig();
+							pairDevice(device);
+
+							if(cfg.isDeviceEXA21()==false) {
+								Thread.sleep(3000);
+
+								iterateBluetoothDevices();
+								if (mBondFound) {
+									Toast.makeText(AppTemplate.getAppTemplate(), "Pairing success", Toast.LENGTH_LONG).show();
+									mButtonBond.setText("Unpair");
+								} else
+									Toast.makeText(AppTemplate.getAppTemplate(), "Pairing failed", Toast.LENGTH_LONG).show();
+							}
+							//mExt.restartBLEModule();
+						}catch (Exception e) {
+							e.printStackTrace();
+							Toast.makeText(AppTemplate.getAppTemplate(),"Pairing failed:" + e.getMessage(), Toast.LENGTH_LONG).show();
+						}
+					}
+				}
+			}
+		});
 	}
 
 	@Override
 	public void onResume() {
 		super.onResume();
+		Log.i(TAG,"Resume");
+		iterateBluetoothDevices();
 		readCurrentSetup();
 	}
 }

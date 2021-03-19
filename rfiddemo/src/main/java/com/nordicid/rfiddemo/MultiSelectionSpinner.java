@@ -19,6 +19,7 @@ import android.widget.Spinner;
 import android.widget.SpinnerAdapter;
 import android.widget.Toast;
 
+
 public class MultiSelectionSpinner extends Spinner {
     String[] _items = null;
     boolean[] mSelection = null;

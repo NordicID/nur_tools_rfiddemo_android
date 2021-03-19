@@ -252,7 +252,7 @@ public class TraceTagController {
 		if (isTracingTag())
 			return true;
 		
-		if (mApi.isConnected() && epc.length() > 0) {
+		if (mApi.isConnected()) {// && epc.length() > 0) {
 			try {
 				setTagTrace(epc);
 				

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/customInventoryListViewRow"
+    android:orientation="horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/icon"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginLeft="0dp"
+        android:layout_marginRight="3dp"
+        android:layout_marginTop="1dp"
+        android:src="@drawable/ic_nfc_black" >
+    </ImageView>
+
+    <TextView
+        android:id="@+id/nfcIDHexText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="55dp"
+        android:layout_marginTop="5dp"
+        android:text="ID (hex):" />
+
+    <TextView
+        android:id="@+id/nfcIDDecText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="55dp"
+        android:layout_marginTop="25dp"
+        android:text="ID (dec)" />
+
+    <TextView
+        android:id="@+id/nfcTechText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="55dp"
+        android:layout_marginTop="45dp"
+        android:text="Technologies:" />
+
+
+</RelativeLayout>

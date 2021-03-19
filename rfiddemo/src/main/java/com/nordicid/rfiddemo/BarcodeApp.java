@@ -1,18 +1,12 @@
 package com.nordicid.rfiddemo;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.lang.Object;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-
 import com.nordicid.apptemplate.SubApp;
-import com.nordicid.nuraccessory.AccessoryBarcodeResult;
-import com.nordicid.nuraccessory.AccessoryBarcodeResultListener;
-import com.nordicid.nuraccessory.NurAccessoryConfig;
 import com.nordicid.nuraccessory.NurAccessoryExtension;
+import com.nordicid.nurapi.ACC_SENSOR_SOURCE;
+import com.nordicid.nurapi.AccBarcodeResult;
+import com.nordicid.nurapi.AccBarcodeResultListener;
+import com.nordicid.nurapi.AccConfig;
+import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiErrors;
 import com.nordicid.nurapi.NurApiListener;
@@ -30,8 +24,6 @@ import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
 
-import android.content.Context;
-import android.content.ContentResolver;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -41,28 +33,24 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.database.Cursor;
 import android.util.Log;
 
 
 public class BarcodeApp extends SubApp {
 
 	private NurApiListener mThisClassListener = null;
-	private AccessoryBarcodeResultListener mResultListener;
+	private AccBarcodeResultListener mResultListener;
 
-	private NurAccessoryExtension mAccessoryExt;
+	private AccessoryExtension mAccessoryExt;
 	private SettingsAppTabbed mOwner;
 	private boolean mIsBle = false;
-	private NurAccessoryConfig mBleCfg = null;
+	private AccConfig mBleCfg = null;
 
 	private EditText mEditText;
 	private Button mTriggerBtn = null;
 	private Button mSendCfgBtn = null;
 
+	final private String TAG = "NUR_";
 
 	@Override
 	public NurApiListener getNurApiListener() {
@@ -74,9 +62,11 @@ public class BarcodeApp extends SubApp {
 
 		mAccessoryExt = getAppTemplate().getAccessoryApi();
 
-		mResultListener = new AccessoryBarcodeResultListener() {
+		mResultListener = new AccBarcodeResultListener() {
 			@Override
-			public void onBarcodeResult(AccessoryBarcodeResult result) {
+			public void onBarcodeResult(AccBarcodeResult result) {
+
+				Log.w(TAG, "Barcoderesult=" + result.strBarcode + " Status=" + result.status);
 
 				if (!mIsActive)
 					return;
@@ -123,7 +113,9 @@ public class BarcodeApp extends SubApp {
 			@Override
 			public void disconnectedEvent() { }
 			@Override
-			public void logEvent(int level, String txt) { }
+			public void logEvent(int level, String txt) {
+				Log.w(TAG,txt);
+			}
 			@Override
 			public void bootEvent(String event) { }
 			@Override
@@ -131,8 +123,23 @@ public class BarcodeApp extends SubApp {
 
 			@Override
 			public void IOChangeEvent(NurEventIOChange event) {
-				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE)
+				Log.w(TAG, "IOChangeEvent source=" + event.source + " Dir=" + event.direction + " mIsActive=" + mIsActive);
+				if (event.source == NurAccessoryExtension.TRIGGER_SOURCE) {
 					bleTrigger(event.direction);
+				}
+				else if (event.source == ACC_SENSOR_SOURCE.ToFSensor.getNumVal()) {
+					if (event.direction == 1 && mIsActive == false) {
+						mAimerNotSupported = true;
+						bleTrigger(0);
+					}
+					/*
+					//stop by ToF range Hi
+					else if (event.direction == 0 && mIsActive == true) {
+						bleTrigger(1);
+						handleTrigger();
+					}
+					*/
+				}
 			}
 
 			@Override
@@ -166,6 +173,7 @@ public class BarcodeApp extends SubApp {
 		};
 
 		setIsVisibleInMenu(false);
+
 	}
 
 	@Override
@@ -276,7 +284,7 @@ public class BarcodeApp extends SubApp {
 			getAppTemplate().setEnableBattUpdate(false);
 			if (!mAimerNotSupported)
 				mAccessoryExt.imagerAIM(false);
-			mAccessoryExt.readBarcodeAsync(5000);
+			mAccessoryExt.readBarcodeAsync(4000);
 			ChangeTriggerText(true);
 			mIsActive = true;
 		} catch (Exception e) {
@@ -289,31 +297,6 @@ public class BarcodeApp extends SubApp {
 		}
 	}
 
-	/*
-	private void handleSetConfiguration()
-	{
-		Intent intent;
-		Intent filePicker;
-
-		intent = new Intent(Intent.ACTION_GET_CONTENT);
-		intent.setType("text/plain");
-
-		filePicker = Intent.createChooser(intent, getResources().getString(R.string.file_picker));
-
-		try {
-			Main.getInstance().setDoNotDisconnectOnStop(true);
-
-			startActivityForResult(filePicker, 42);
-		} catch (Exception ex) {
-
-			String strErr = ex.getMessage();
-			Toast.makeText(getActivity(), "Error:\n" + strErr, Toast.LENGTH_SHORT).show();
-			Main.getInstance().setDoNotDisconnectOnStop(false);
-		}
-
-	}
-	*/
-
 	boolean mIgnoreNextTrigger = false;
 	boolean mCancelRequested = false;
 
@@ -321,7 +304,7 @@ public class BarcodeApp extends SubApp {
 	{
 		boolean aim=false;
 
-		Log.e("0","TRG dir=" + String.valueOf(dir));
+		Log.e(TAG,"TRG dir=" + String.valueOf(dir));
 
 		if (dir == 0)
 		{
@@ -350,117 +333,13 @@ public class BarcodeApp extends SubApp {
 
 	boolean mAimerNotSupported = false;
 
-	/*
-	@Override
-	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == 42 && resultCode == Activity.RESULT_OK)
-		{
-			super.onActivityResult(requestCode, resultCode, data);
-			if (data != null)
-			{
-				Uri uri = data.getData();
-				handleFileSelection(uri);
-			}
-		}
-	}
-	*/
-
-	/*
-	private void handleFileSelection(Uri uri)
-	{
-		BufferedReader br;
-		int succes_cnt=0;
-		int nack_cnt = 0;
-
-		try {
-			br = new BufferedReader(new InputStreamReader(getActivity().getContentResolver().openInputStream(uri)));
-
-			String line = null;
-			while ((line = br.readLine()) != null)
-			{
-				Log.e("0","IMG cfg=" + line);
-				try
-				{
-					byte arr[] = mAccessoryExt.imagerCmd(line, 0);
-					if(arr == null)
-					{
-						//mEditText.setText("Config failed! (invalid config string)");
-						//Toast.makeText(getActivity(), "Config line not valid", Toast.LENGTH_SHORT).show();
-						//Not valid config line. Take next
-						continue;
-					}
-					if(arr[0] == 21)
-					{
-						nack_cnt++;
-					}
-					else if(arr[0] == 6)
-					{
-						//mEditText.setText("Config success!");
-						succes_cnt++;
-					}
-				}
-				catch (Exception e)
-				{
-					Log.e("0","IMG err=" + e.getMessage());
-					mEditText.setText(e.getMessage());
-					//break;
-				}
-
-
-			}
-			br.close();
-
-			if(succes_cnt>0)
-			{
-				//Save codes to Imager flash(Opticon)
-				line = "@MENU_OPTO@ZZ@Z2@ZZ@OTPO_UNEM@";
-				try {
-					byte rsp[] = mAccessoryExt.imagerCmd(line, 0);
-					if (rsp == null) {
-						mEditText.setText("Saving configuration failed! (no response)");
-					} else if (rsp[0] == 21) {
-						mEditText.setText("Saving configuration failed! (nack)");
-					} else if (rsp[0] == 6) {
-						if(nack_cnt==0)
-							mEditText.setText("Config success!");
-						else mEditText.setText("Config success: (" + String.valueOf(succes_cnt)+" rows ) failed: ("+ String.valueOf(nack_cnt)+" rows)");
-					} else {
-						mEditText.setText("Saving configuration failed! " + String.valueOf(rsp[0]));
-					}
-				}
-				catch (Exception ex)
-				{
-					Log.e("0","IMG saveerr=" + ex.getMessage());
-					mEditText.setText(ex.getMessage());
-				}
-
-			}
-			else
-			{
-				if(nack_cnt>0)
-					mEditText.setText("Config failed! (Check your config string)");
-				else
-					mEditText.setText("Valid config string not found!");
-				//Toast.makeText(getActivity(), "Config line not valid", Toast.LENGTH_SHORT).show();
-			}
-
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-	}
-	*/
-
-
-
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState)
 	{
 		mEditText = (EditText) view.findViewById(R.id.result_text);
 
 		mAccessoryExt.registerBarcodeResultListener(mResultListener);
+		//getNurApi().setLogLevel(NurApi.LOG_VERBOSE | NurApi.LOG_DATA);
 		mTriggerBtn = addButtonBarButton(getString(R.string.start), new OnClickListener() {
 			@Override
 			public void onClick(View v) {

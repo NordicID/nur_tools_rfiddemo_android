@@ -5,12 +5,10 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Locale;
 
 import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.apptemplate.SubAppList;
-import com.nordicid.controllers.BthDFUController;
-import com.nordicid.controllers.NURFirmwareController;
-import com.nordicid.nuraccessory.NurAccessoryVersionInfo;
 import com.nordicid.nurapi.BleScanner;
 import com.nordicid.nurapi.NurApiAndroid;
 import com.nordicid.nurapi.*;
@@ -26,6 +24,8 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.net.Uri;
+import android.nfc.NfcAdapter;
+import android.nfc.NfcManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
@@ -39,26 +39,21 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.nordicid.nurapi.NurSmartPairSupport;
+import nordicid.com.nurupdate.NurDeviceUpdate;
+
 
 public class Main extends AppTemplate {
 
     // Check whether this string is found in the given filename.
     private final String NUR_AUTH_IDENT_STR = "nur_auth_keyset";
+
     final private String TAG = "MAIN";
     // Authentication app requirements.
     public static final int AUTH_REQUIRED_VERSION = 0x050500 + ('A' & 0xFF);
     public static final String AUTH_REQUIRED_VERSTRING = "5.5-A";
     private static SharedPreferences mApplicationPrefences = null;
 
-    private boolean isApplicationMode = true;
-
-    /**
-     * Update Controllers
-     */
-    BthDFUController mDFUController;
-    NURFirmwareController mNURAPPController;
-
+    private NfcApp mNfcApp;
     /**
      * Requesting file for key reading.
      */
@@ -68,6 +63,10 @@ public class Main extends AppTemplate {
     boolean mEnableTimerPing = false;
 
     private NurApiAutoConnectTransport mAcTr;
+    private static boolean mIsApplicationMode = true;
+    private static boolean mBarcodeOnly;
+    private static boolean mIsSensors;
+    private static  boolean mIsImager;
 
     public static final String KEYFILE_PREFNAME = "TAM1_KEYFILE";
     public static final String KEYNUMBER_PREFNAME = "TAM1_KEYNUMBER";
@@ -78,18 +77,11 @@ public class Main extends AppTemplate {
 
     private boolean mDoNotDisconnectOnStop = false;
 
-    public NURFirmwareController getNURUpdateController(){
-        return mNURAPPController;
-    }
-
-    public BthDFUController getDFUUpdateController(){
-        return mDFUController;
-    }
-
     public NurApiAutoConnectTransport getAutoConnectTransport()
     {
         return mAcTr;
     }
+
 
     public void disposeTrasport() {
         if (mAcTr != null) {
@@ -120,6 +112,10 @@ public class Main extends AppTemplate {
     public static Main getInstance() {
         return gInstance;
     }
+    public static boolean isImager() {return mIsImager;}
+    public static boolean isBarcodeOnly() {return mBarcodeOnly;}
+    public static boolean isSensors() {return mIsSensors;}
+    public static boolean isApplicationMode() {return mIsApplicationMode;}
 
     public void handleKeyFile() {
         Intent intent;
@@ -188,7 +184,7 @@ public class Main extends AppTemplate {
         return mApplicationPrefences.getInt(KEYNUMBER_PREFNAME, -1);
     }
 
-    public boolean checkUpdatesEnabled() { return mApplicationPrefences.getBoolean("CheckUpdate",false); }
+    //public boolean checkUpdatesEnabled() { return mApplicationPrefences.getBoolean("CheckUpdate",false); }
 
     public void loadSettings() {
         String type = mApplicationPrefences.getString("connType", "");
@@ -199,7 +195,7 @@ public class Main extends AppTemplate {
 
         String specStr = mApplicationPrefences.getString("specStr", "");
         if (specStr.length() == 0) {
-            String manufacturer = Build.MANUFACTURER.toLowerCase();
+            String manufacturer = Build.MANUFACTURER.toLowerCase(Locale.ENGLISH);
             if (manufacturer.contains("nordicid") || manufacturer.contains("nordic id")) {
                 // Defaults to integrated reader
                 specStr = "type=INT;addr=integrated_reader";
@@ -235,7 +231,7 @@ public class Main extends AppTemplate {
 
     void updateStatus()
     {
-        // Log.d(TAG, "updateStatus() " + mConnectedName + "; " + mApi.isConnected());
+        //Log.w(TAG, "updateStatus() " + mConnectedName + "; " + mApi.isConnected() + " :" + mAcTr.getDetails());
 
         int nextUpdate = 2000;
 
@@ -254,6 +250,9 @@ public class Main extends AppTemplate {
 
             if (mApi.isConnected() && mConnectedName.length() == 0)
             {
+                //Need to get fresh info from device is accessories supported
+                AppTemplate.getAppTemplate().mAccessorySupported = AppTemplate.getAppTemplate().getAccessoryApi().isSupported();
+
                 if (AppTemplate.getAppTemplate().getAccessorySupported())
                 {
                     // Attempt to get name from accessory device config
@@ -321,7 +320,7 @@ public class Main extends AppTemplate {
 
         if (!Main.getAppTemplate().isApplicationPaused()) {
             try {
-                timerHandler.postDelayed(mUpdateStatusRunnable, nextUpdate);
+               timerHandler.postDelayed(mUpdateStatusRunnable, nextUpdate);
             } catch (Exception e) {
                 Log.e(TAG, e.toString());
             }
@@ -364,7 +363,7 @@ public class Main extends AppTemplate {
         Log.d(TAG, "onPause() mDoNotDisconnectOnStop " + mDoNotDisconnectOnStop + "; mShowingSmartPair " + mShowingSmartPair);
         super.onPause();
 
-        timerHandler.removeCallbacksAndMessages(null);
+        timerHandler.removeCallbacks(mUpdateStatusRunnable);
 
         if (mAcTr != null && !mDoNotDisconnectOnStop) {
             mAcTr.onPause();
@@ -434,32 +433,6 @@ public class Main extends AppTemplate {
         }
     }
 
-    private int getFwIntVersion(NurApi api) {
-        int iVersion = 0;
-        mDetectedFw = "";
-
-        if (api != null && api.isConnected()) {
-            try {
-                NurRespReaderInfo ri;
-                ri = api.getReaderInfo();
-
-                mDetectedFw = ri.swVersion;
-
-                iVersion = ri.swVerMajor & 0xFF;
-                iVersion <<= 8;
-                iVersion |= (ri.swVerMinor & 0xFF);
-                iVersion <<= 8;
-                iVersion |= (ri.swVerDev & 0xFF);
-
-            } catch (Exception ex) {
-
-            }
-        }
-
-        return iVersion;
-    }
-
-    private String mDetectedFw = "";
 
     // Visible app choices / not.
     public void syncViewContents() {
@@ -511,15 +484,16 @@ public class Main extends AppTemplate {
     }
 
     @Override
+    public void onNfcRead(String hex, String dec, String tec) {
+        mNfcApp.addNFCItem(hex,dec,tec);
+    }
+
+    @Override
     public void onCreateSubApps(final SubAppList subAppList) {
         gInstance = this;
         BleScanner.init(this);
 
-        NurApi theApi = getNurApi();
-
         /* Set update sources */
-        mDFUController = new BthDFUController(Main.getInstance(),getString(R.string.DFU_APP_SRC),getString(R.string.DFU_BLDR_SRC));
-        mNURAPPController = new NURFirmwareController(mApi,getString(R.string.NUR_APP_SRC),getString(R.string.NUR_BLDR_SRC));
         mApplicationPrefences = getSharedPreferences("DemoApp", Context.MODE_PRIVATE);
         loadHintStatus();
 
@@ -536,6 +510,15 @@ public class Main extends AppTemplate {
 		
 		/* Tag write application. */
         subAppList.addSubApp(new WriteApp());
+
+        NfcManager manager = (NfcManager) getApplicationContext().getSystemService(Context.NFC_SERVICE);
+        NfcAdapter adapter = manager.getDefaultAdapter();
+        if (adapter != null && adapter.isEnabled()) {
+            //Yes NFC available
+            mNfcApp = new NfcApp();
+            subAppList.addSubApp(mNfcApp);
+        }
+
 
 		/* Barcode application. */
         subAppList.addSubApp(new BarcodeApp());
@@ -568,7 +551,12 @@ public class Main extends AppTemplate {
                 else
                     setStatusText("No connection defined");*/
 
-                Toast.makeText(Main.this, getString(R.string.reader_disconnected), Toast.LENGTH_SHORT).show();
+                if(mAcTr.getAddress().equals("integrated_reader")==false) {
+
+                    if(mUpdatePending == false)
+                        Toast.makeText(Main.this, getString(R.string.reader_disconnected), Toast.LENGTH_SHORT).show();
+                }
+
                 getSubAppList().getApp("Barcode").setIsVisibleInMenu(false);
                 getSubAppList().getApp("Authentication").setIsVisibleInMenu(false);
 
@@ -591,6 +579,11 @@ public class Main extends AppTemplate {
 
             @Override
             public void connectedEvent() {
+
+                mIsSensors=false;
+                mBarcodeOnly = false;
+                mIsImager = false;
+
                 timerHandler.removeCallbacks(mSmartPairDisconRunnable);
                 mSmartPairDisconButtons[0] = mSmartPairDisconButtons[1] = 0;
 
@@ -598,39 +591,54 @@ public class Main extends AppTemplate {
 
                 try {
                     updateStatus();
-                    isApplicationMode = mApi.getMode().equalsIgnoreCase("A");
+                    mIsApplicationMode = mApi.getMode().equalsIgnoreCase("A");
 
-                    final NurAccessoryVersionInfo accessoryVersion = getAccesoryVersionInfo();
-                    if(accessoryVersion != null) {
-                        mDFUController.setHWType(getAccessoryApi().getConfig().getDeviceType());
-                        mDFUController.setAPPVersion(accessoryVersion.getApplicationVersion());
-                        mDFUController.setBldrVersion(accessoryVersion.getBootloaderVersion());
-                    } else {
-                        mDFUController.setHWType(null);
-                    }
+                    //if(checkUpdatesEnabled())
+                    //   checkDeviceUpdates();
 
-                    final String module = getModuleType();
-                    mNURAPPController.setAPPVersion(getNurAppVersion());
-                    mNURAPPController.setHWType(module);
-                    mNURAPPController.setBldrVersion(getNurBldrVersion());
-
-                    if(checkUpdatesEnabled())
-                        checkDeviceUpdates();
-
-                    if (!isApplicationMode)
+                    if (!mIsApplicationMode)
                         Toast.makeText(Main.this, getString(R.string.device_boot_mode), Toast.LENGTH_LONG).show();
-                    else
-                        Toast.makeText(Main.this, getString(R.string.reader_connected), Toast.LENGTH_SHORT).show();
+                    else {
+                        //Do not show this message when Integrated reader.
+
+                        if(mAcTr.getAddress().equals("integrated_reader")==false)
+                            Toast.makeText(Main.this, getString(R.string.reader_connected), Toast.LENGTH_SHORT).show();
+                    }
 
                     // Authentication always hidden for now
                     getSubAppList().getApp("Authentication").setIsVisibleInMenu(/*fwVer >= AUTH_REQUIRED_VERSION*/ false);
 
                     // Show barcode app only for accessory devices w/ barcode reader
+
                     if (getAccessorySupported() && getAccessoryApi().getConfig().hasImagerScanner()) {
                         getSubAppList().getApp("Barcode").setIsVisibleInMenu(true);
+                        mIsImager = true;
                     } else {
                         getSubAppList().getApp("Barcode").setIsVisibleInMenu(false);
+                        mIsImager = false;
                     }
+
+
+                    NurRespDevCaps caps = getNurApi().getDeviceCaps();
+                    Log.w(TAG, "moduleType=" + caps.getModuleType());
+                    Log.w(TAG, "hasInventoryRead=" + caps.hasInventoryRead());
+                    Log.w(TAG, "hasLf256k=" + caps.hasLf256k());
+
+                    if(caps.hasLf256k()==false && caps.hasInventoryRead()==false) {
+                        //No RFID stuff
+                        mBarcodeOnly = true;
+                    }
+
+                    getSubAppList().getApp("Write").setIsVisibleInMenu(mBarcodeOnly ? false:true);
+                    getSubAppList().getApp("Inventory").setIsVisibleInMenu(mBarcodeOnly ? false:true);
+                    getSubAppList().getApp("Locate").setIsVisibleInMenu(mBarcodeOnly ? false:true);
+
+
+                    if(getAccessorySupported()) {
+                        ArrayList<AccSensorConfig> sensorList = getAccessoryApi().accSensorEnumerate();
+                        if(sensorList.size() > 0) mIsSensors=true;
+                    }
+
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -691,6 +699,7 @@ public class Main extends AppTemplate {
 
             @Override
             public void bootEvent(String event) {
+
             }
 
             @Override
@@ -809,8 +818,6 @@ public class Main extends AppTemplate {
                 testmodeClickCount++;
 
                 if (testmodeClickCount == 10) {
-                    mDFUController.setAppSource(getString(R.string.DFU_TEST_APP_SRC));
-                    mDFUController.setBldrSource(getString(R.string.DFU_TEST_BLDR_SRC));
                     Toast.makeText(Main.this, "Test Mode enabled", Toast.LENGTH_SHORT).show();
                     getSubAppList().getApp("Test Mode").setIsVisibleInMenu(true);
                 }
@@ -920,7 +927,7 @@ public class Main extends AppTemplate {
     public String getNurAppVersion(){
         try{
             if(mApi.isConnected())
-                return ((isApplicationMode) ? mApi.getVersions().primaryVersion : mApi.getVersions().secondaryVersion);
+                return ((mIsApplicationMode) ? mApi.getVersions().primaryVersion : mApi.getVersions().secondaryVersion);
         } catch (Exception e){
             Log.e(TAG,e.toString());
         }
@@ -930,7 +937,7 @@ public class Main extends AppTemplate {
     public String getNurBldrVersion(){
         try{
             if(mApi.isConnected())
-                return ((isApplicationMode) ? getNurApi().getVersions().secondaryVersion : mApi.getVersions().primaryVersion);
+                return ((mIsApplicationMode) ? getNurApi().getVersions().secondaryVersion : mApi.getVersions().primaryVersion);
         } catch (Exception e){
             //
         }
@@ -938,90 +945,36 @@ public class Main extends AppTemplate {
     }
 
     public void checkDeviceUpdates() {
+
         if(!mApi.isConnected()) {
             Toast.makeText(this,"No device connected",Toast.LENGTH_SHORT).show();
             return;
         }
-        boolean dfuApp = mDFUController.isAppUpdateAvailable();
-        boolean dfuBldr = mDFUController.isBldrUpdateAvailable();
-        boolean nurApp = mNURAPPController.isAppUpdateAvailable();
-        boolean nurBldr = mNURAPPController.isBldrUpdateAvailable();
 
-        String manufacturer = Build.MANUFACTURER.toLowerCase();
-        if (manufacturer.contains("nordicid") || manufacturer.contains("nordic id")) {
-            dfuApp=false;
-            dfuBldr=false;
-        }
+        if(isBarcodeOnly() && isApplicationMode()==true) {
 
-        if(dfuApp || dfuBldr || nurApp || nurBldr) {
             final AlertDialog.Builder alertDialog = new AlertDialog.Builder(gInstance);
-            alertDialog.setTitle("Available Updates:");
-            String message = "";
-            final NurAccessoryVersionInfo accessoryVersion = getAccesoryVersionInfo();
-            int myVer = 0;
-            int upVer = 0;
+            alertDialog.setTitle("Check available updates from:");
+            alertDialog.setMessage("Setting / System / Advanced / Additional system updates");
 
-            if(dfuApp) {
-                try {
-
-                    String ver1 = accessoryVersion.getApplicationVersion();
-
-                    String ver2 = mDFUController.getAvailableAppUpdateVerion();
-                    ver1 = ver1.replaceAll("[^0-9]", "");
-                    ver2 = ver2.replaceAll("[^0-9]", "");
-
-                    myVer = Integer.parseInt(ver1);
-                    upVer = Integer.parseInt(ver2);
-
-                    Log.e("VER","appVer=" + accessoryVersion.getApplicationVersion() + " ver=" + myVer);
-                    Log.e("VER","availVer=" +mDFUController.getAvailableAppUpdateVerion() + " ver=" + upVer);
-
-                    if(myVer<upVer)
-                        message += "Device application available : " + mDFUController.getAvailableAppUpdateVerion();
-                }
-                catch (NumberFormatException ne)
-                {
-                    Log.e("VER","NumberFormatException=" + ne.getMessage());
-                    //message +="\nNo updates available";
-                }
-
-            }
-            if(dfuBldr) {
-                try {
-                    Log.e("myVer=",accessoryVersion.getBootloaderVersion());
-                    Log.e("upVer=",mDFUController.getAvailableBldrUpdateVerion());
-                    myVer = Integer.parseInt(accessoryVersion.getBootloaderVersion());
-                    upVer = Integer.parseInt(mDFUController.getAvailableBldrUpdateVerion());
-
-                    if(myVer < upVer)
-                        message += "\nDevice bootloader available : " + mDFUController.getAvailableBldrUpdateVerion();
-                    else message +="\nNo updates available";
-                } catch(NumberFormatException nfe) {
-                    message +="\nNo updates available";
-                }
-
-
-            }
-            if(nurApp)
-                message += "\nNUR application available : " + mNURAPPController.getAvailableAppUpdateVerion();
-            if(nurBldr)
-                message += "\nNUR bootloader available : " + mNURAPPController.getAvailableBldrUpdateVerion();
-            alertDialog.setMessage(message);
-            alertDialog.setNegativeButton("Dismiss",null);
-            alertDialog.setPositiveButton("Update firmware", new DialogInterface.OnClickListener() {
+            alertDialog.setNegativeButton("Cancel",null);
+            alertDialog.setPositiveButton("Go to 'Settings'..", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    SettingsAppTabbed.setPreferredTab(getString(R.string.firmware_updates));
-                    setApp("Settings");
+
+                    startActivityForResult(new Intent(android.provider.Settings.ACTION_SETTINGS), 0);
                 }
             });
+
             alertDialog.show();
+            return;
         }
-        else
-            Toast.makeText(this,"Device up to date",Toast.LENGTH_SHORT).show();
+
+        SettingsAppTabbed.setPreferredTab(getString(R.string.firmware_updates));
+        setApp("Settings");
     }
 
-    public NurAccessoryVersionInfo getAccesoryVersionInfo()
+    public AccVersionInfo getAccesoryVersionInfo()
     {
         try{
             if (getAccessorySupported() && mApi.isConnected())
@@ -1123,7 +1076,7 @@ public class Main extends AppTemplate {
 
         String appversion = "0.0";
         try {
-            appversion = this.getPackageManager().getPackageInfo(BuildConfig.APPLICATION_ID, 0).versionName;
+            appversion = this.getPackageManager().getPackageInfo("com.nordicid.rfiddemo", 0).versionName;
         } catch (PackageManager.NameNotFoundException e) {
             e.printStackTrace();
         }
@@ -1134,10 +1087,11 @@ public class Main extends AppTemplate {
         final TextView nurApiVersion = (TextView) dialogLayout.findViewById(R.id.nur_api_version);
         //nurApiVersion.setText(getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion());
 
-        String verStr = getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion() + "; androidapi " + NurApiAndroid.getVersion();
+        String verStr = getString(R.string.about_dialog_nurapi) + " " + getNurApi().getFileVersion() + "; NurAndroidApi " + NurApiAndroid.getVersion();
         if (NurSmartPairSupport.isSupported()) {
-            verStr += "; smartpair " + NurSmartPairSupport.getVersion();
+            verStr += "; SmartPair " + NurSmartPairSupport.getVersion();
         }
+        verStr +="; NurUpdateLib " + NurDeviceUpdate.getVersion();
         nurApiVersion.setText(verStr);
 
         if (getNurApi().isConnected()) {
@@ -1146,30 +1100,39 @@ public class Main extends AppTemplate {
 
             try {
                 NurRespReaderInfo readerInfo = getNurApi().getReaderInfo();
+                NurRespDevCaps devCaps = getNurApi().getDeviceCaps();
 
                 final TextView modelTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_model);
                 modelTextView.setText(getString(R.string.about_dialog_model) + " " + getModuleType());
                 modelTextView.setVisibility(View.VISIBLE);
 
-                final TextView serialTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_serial);
-                serialTextView.setText(getString(R.string.about_dialog_serial) + " " + readerInfo.serial);
-                serialTextView.setVisibility(View.VISIBLE);
+                if(isBarcodeOnly()==false) {
+                    final TextView serialTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_serial);
+                    serialTextView.setText(getString(R.string.about_dialog_serial) + " " + readerInfo.serial);
+                    serialTextView.setVisibility(View.VISIBLE);
 
-                final TextView deviceSerialTextView = (TextView) dialogLayout.findViewById(R.id.device_serial);
-                deviceSerialTextView.setText(getString(R.string.about_dialog_device_serial) + " " + readerInfo.altSerial);
-                deviceSerialTextView.setVisibility(View.VISIBLE);
+                    final TextView deviceSerialTextView = (TextView) dialogLayout.findViewById(R.id.device_serial);
+                    deviceSerialTextView.setText(getString(R.string.about_dialog_device_serial) + " " + readerInfo.altSerial);
+                    deviceSerialTextView.setVisibility(View.VISIBLE);
 
-                final TextView firmwareTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_firmware);
-                firmwareTextView.setText("Firmware: " + getNurAppVersion());
-                firmwareTextView.setVisibility(View.VISIBLE);
+                    final TextView firmwareTextView = (TextView) dialogLayout.findViewById(R.id.reader_info_firmware);
+                    firmwareTextView.setText("Firmware: " + getNurAppVersion());
+                    firmwareTextView.setVisibility(View.VISIBLE);
 
-                final TextView bootloaderTextView = (TextView) dialogLayout.findViewById(R.id.reader_bootloader_version);
-                bootloaderTextView.setText(getString(R.string.about_dialog_bootloader) + " " + getNurBldrVersion());
-                bootloaderTextView.setVisibility(View.VISIBLE);
+                    final TextView bootloaderTextView = (TextView) dialogLayout.findViewById(R.id.reader_bootloader_version);
+                    bootloaderTextView.setText(getString(R.string.about_dialog_bootloader) + " " + getNurBldrVersion());
+                    bootloaderTextView.setVisibility(View.VISIBLE);
+
+                    final TextView secChipTextView = (TextView) dialogLayout.findViewById(R.id.reader_sec_chip_version);
+                    if (devCaps.isOneWattReader())
+                        secChipTextView.setText(getString(R.string.about_dialog_sec_chip) + " " + devCaps.secChipMajorVersion + "." + devCaps.secChipMinorVersion + "." + devCaps.secChipMaintenanceVersion + "." + devCaps.secChipReleaseVersion);
+                    else secChipTextView.setText("-------------");
+                    secChipTextView.setVisibility(View.VISIBLE);
+                }
 
                 if (getAccessorySupported()) {
 
-                    final NurAccessoryVersionInfo accessoryVersion = getAccesoryVersionInfo();
+                    final AccVersionInfo accessoryVersion = getAccesoryVersionInfo();
 
                     final TextView accessoryTextView = (TextView) dialogLayout.findViewById(R.id.accessory_version);
                     accessoryTextView.setText(getString(R.string.about_dialog_accessory) + " " + accessoryVersion.getFullApplicationVersion());
@@ -1279,7 +1242,7 @@ public class Main extends AppTemplate {
 
         for(i=0; i < fields.length; i++){
             Log.d(TAG, "Checking: " + fields[i].getName() + " / " + fields[i].getGenericType().toString());
-            if (!fields[i].getName().toLowerCase().contains(NUR_AUTH_IDENT_STR))
+            if (!fields[i].getName().toLowerCase(Locale.ENGLISH).contains(NUR_AUTH_IDENT_STR))
                 continue;
 
             Log.e(TAG, " -> OK, continue check.");

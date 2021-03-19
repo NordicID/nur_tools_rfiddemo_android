@@ -1,61 +1,16 @@
-v1.2.7.9
-- SmartPair support using SmartPair library
-- Fix tuning antenna names
-- Fix settings mess up in some cases
+v1.8.0
+- Possible to edit EPC to locate
+- API 29
 
-v1.2.7.6
-- API 27
-- Oreo support for DFU
+v1.7.1
+- Fixed null exception on NFC code after rising from sleep
 
-v1.2.7.5
-- Fix tag/s view
-- Target API level changed to 26
-- Fixes for DFU operation
-- Added “Inventory settings” tab. possible to set Inventory type (EPC, EPC+TID, EPC+USER)
-- Added option to export tag list in to the file while clearing tag list.
-- Added option to choose trigger button behavior between old- or new style.
-
-v1.2.7.4
-- DFU Bootloader update issue fixed
-- TRIGGER behavior change in Inventory. Inventory running as long trigger button pressed down.
-- Inventory list cleared only when "Clear" button pressed.
-
-v1.2.7.3
-- Added Nordic ID Smart Pair support
-- Fixed lag when entering settings
-- Fixed locate view progress udpate smoothness after locate view reopen
-- Minor UI changes
-- Update NurApiAndroid
-
-v1.2.6
-- Update NurApiAndroid
-- Minor UI layout changes to improve usage in small screens
-- Fixed integrated reader issues
-
-v1.2.5
-- Update NurApiAndroid
-
-v1.2.4
--Local storage FW file load improvements
--RSSI view for tag list
--RSSI filter settings
--Fixed CSV export on Android 8
--Add keyboard|navigation to config changes. Apparently android oreo sends these when HID connection changes causing android to recreate whole activity.
--Fixed crash when resuming app after OS has automatically close it.
-
-v1.1.8
-- Fixed crash when resuming app after OS has automatically closed it
-
-v1.1.7
-- Fixed CSV export on android 8
-- Add keyboard|navigation to configChanges, apparently android oreo sends these when HID connection changes. Thus causing android to recreate whole activity.
-
-v1.1.6
-- Added device serial number to About
-
-v1.1.5
-- Fixed crash bug on BLE listner
-- About window improvements
-
-
-
+v1.7.0
+- Updated NurApiAndroid.aar
+- Fixed language issue when reading manufacturer string
+- Updated BLE scanner library
+- Updated DFU lib
+- Possible to add GPS coordinate "(lat;long" values for export
+- added NDEF_DISCOVERED support
+- Updated TDT library
+- Possible to view GS1 coded tag

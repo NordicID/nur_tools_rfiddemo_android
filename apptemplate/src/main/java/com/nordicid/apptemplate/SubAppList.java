@@ -6,8 +6,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
-import android.util.Log;
+import androidx.fragment.app.Fragment;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -22,7 +21,7 @@ import android.widget.TextView;
  * Builds and manages the menu.
  */
 public class SubAppList extends Fragment implements AdapterView.OnItemClickListener {
-	public static final String TAG = "SubAppList";
+	public static final String TAG = "SENSOR";
 	private ArrayList<SubApp> mSubApps = new ArrayList<SubApp>();
 	private GridView mGridView;
 	private AppTemplate appTemplate;
@@ -186,8 +185,11 @@ public class SubAppList extends Fragment implements AdapterView.OnItemClickListe
 	 */
 	public void setCurrentOpenSubApp(SubApp app) {
 		SubApp cur = getCurrentOpenSubApp();
-		if (cur != null)
+
+
+		if (cur != null) {
 			cur.onVisibility(false);
+		}
 
 		if (app == null)
 		{

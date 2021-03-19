@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <LinearLayout
+        android:id="@+id/layout_sensorSettings"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="20dp"
+        android:paddingLeft="15dp"
+        android:paddingRight="15dp"
+        android:paddingTop="30dp">
+
+        <CheckBox
+            android:id="@+id/sensorCheckBoxEnableToF"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.3"
+            android:text="Enable ToF" />
+
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:textColor="#0000D0"
+            android:textSize="12dp"
+            android:text="When ToF enabled, inventory or barcode scanning in this demo started automatically when a readable object near ToF sensor. (I/O state goes to 1)" />
+
+
+        <LinearLayout
+            android:id="@+id/layoutFiltersRange"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true">
+
+            <TextView
+                android:id="@+id/textView14"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:gravity="left"
+                android:text="Range threshold (mm)" />
+
+            <EditText
+                android:id="@+id/sensorEditRangeLo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="2.9"
+                android:maxLength="4"
+                android:inputType="number"
+                android:ems="10"
+                android:text="0" />
+
+
+            <Button
+                android:id="@+id/sensorButtonApplyFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="2.8"
+                android:text="Set" />
+
+        </LinearLayout>
+
+
+
+        <LinearLayout
+            android:id="@+id/layoutRangeData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true">
+
+            <TextView
+                android:id="@+id/textViewRangeHdr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:textColor="#000"
+                android:textSize="16dp"
+                android:text="Range:" />
+
+            <TextView
+                android:id="@+id/sensorTextViewRange"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#070"
+                android:textSize="20dp"
+                android:text="0 mm" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutIOData"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true">
+
+            <TextView
+                android:id="@+id/textViewGpioStateHdr"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:textColor="#000"
+                android:textSize="16dp"
+                android:text="I/O State:" />
+
+            <TextView
+                android:id="@+id/sensorTextViewGpioState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#070"
+                android:textSize="20dp"
+                android:text="---" />
+        </LinearLayout>
+
+        </LinearLayout>
+
+
+
+</LinearLayout>

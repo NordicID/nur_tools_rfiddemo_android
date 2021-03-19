@@ -2,12 +2,14 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/nurapiandroid/NurApiAndroid.iml" filepath="$PROJECT_DIR$/nurapiandroid/NurApiAndroid.iml" />
-      <module fileurl="file://$PROJECT_DIR$/NurSmartPair/NurSmartPair.iml" filepath="$PROJECT_DIR$/NurSmartPair/NurSmartPair.iml" />
-      <module fileurl="file://$PROJECT_DIR$/apptemplate/apptemplate.iml" filepath="$PROJECT_DIR$/apptemplate/apptemplate.iml" />
-      <module fileurl="file://$PROJECT_DIR$/nur_tools_rfiddemo_android.iml" filepath="$PROJECT_DIR$/nur_tools_rfiddemo_android.iml" />
-      <module fileurl="file://$PROJECT_DIR$/nurapi/nurapi.iml" filepath="$PROJECT_DIR$/nurapi/nurapi.iml" />
-      <module fileurl="file://$PROJECT_DIR$/rfiddemo/rfiddemo.iml" filepath="$PROJECT_DIR$/rfiddemo/rfiddemo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/nur_tools_rfiddemo_android.iml" filepath="$PROJECT_DIR$/.idea/modules/nur_tools_rfiddemo_android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/NiduLib/nur_tools_rfiddemo_android.NiduLib.iml" filepath="$PROJECT_DIR$/.idea/modules/NiduLib/nur_tools_rfiddemo_android.NiduLib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/NurApiAndroid/nur_tools_rfiddemo_android.NurApiAndroid.iml" filepath="$PROJECT_DIR$/.idea/modules/NurApiAndroid/nur_tools_rfiddemo_android.NurApiAndroid.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/NurDeviceUpdate/nur_tools_rfiddemo_android.NurDeviceUpdate.iml" filepath="$PROJECT_DIR$/.idea/modules/NurDeviceUpdate/nur_tools_rfiddemo_android.NurDeviceUpdate.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/NurSmartPair/nur_tools_rfiddemo_android.NurSmartPair.iml" filepath="$PROJECT_DIR$/.idea/modules/NurSmartPair/nur_tools_rfiddemo_android.NurSmartPair.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/TDTLib/nur_tools_rfiddemo_android.TDTLib.iml" filepath="$PROJECT_DIR$/.idea/modules/TDTLib/nur_tools_rfiddemo_android.TDTLib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/apptemplate/nur_tools_rfiddemo_android.apptemplate.iml" filepath="$PROJECT_DIR$/.idea/modules/apptemplate/nur_tools_rfiddemo_android.apptemplate.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rfiddemo/nur_tools_rfiddemo_android.rfiddemo.iml" filepath="$PROJECT_DIR$/.idea/modules/rfiddemo/nur_tools_rfiddemo_android.rfiddemo.iml" />
     </modules>
   </component>
 </project>

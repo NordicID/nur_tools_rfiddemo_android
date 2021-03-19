@@ -1,7 +1,9 @@
 package com.nordicid.rfiddemo;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import com.nordicid.nurapi.AntennaMapping;
@@ -23,6 +25,7 @@ import com.nordicid.nurapi.NurEventTagTrackingData;
 import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
 import com.nordicid.nurapi.NurPacket;
+import com.nordicid.nurapi.NurRespDevCaps;
 import com.nordicid.nurapi.NurRespRegionInfo;
 import com.nordicid.nurapi.NurSetup;
 
@@ -30,14 +33,15 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 import android.text.InputType;
 import android.text.method.PasswordTransformationMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
@@ -45,6 +49,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
+import android.widget.SimpleAdapter;
 import android.widget.Spinner;
 import android.widget.SpinnerAdapter;
 import android.widget.TextView;
@@ -149,8 +154,29 @@ public class SettingsAppSettingsTab extends Fragment
 		}
 	}
 
-	ArrayAdapter<CharSequence> txLevelSpinnerAdapter;
-	ArrayAdapter<CharSequence> txLevelSpinnerAdapter1W;
+	private List<String> getTxLevelsFromDevice()
+	{
+		DecimalFormat df = new DecimalFormat("#.#");
+
+		List <String> list = new ArrayList<String>();
+		try {
+			NurRespDevCaps caps = mApi.getDeviceCaps();
+			for(int x=0;x<caps.txSteps;x++) {
+
+				double dBm = caps.maxTxdBm - (x * caps.txAttnStep);
+				//double mW = (double) Math.round(Math.pow(10, (double) dBm / 10));
+				double mW = (double) Math.pow(10, (double) dBm / 10);
+				list.add(df.format(mW) + " mW");
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return list;
+	}
+
+	ArrayAdapter<String> txLevelSpinnerAdapter;
 
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
@@ -219,11 +245,14 @@ public class SettingsAppSettingsTab extends Fragment
 						Log.d(TAG, "New region id: " + newRegionId);
 						mApi.storeSetup(NurApi.STORE_RF);
 					} catch (NurApiException e) {
-                        mRegionSpinner.setSelection(currentRegion);
-                        if(e.error == 5)
-                            Toast.makeText(Main.getInstance(),"Failed to set region, Device is region locked",Toast.LENGTH_SHORT).show();
-						else
-                            storeError(e);
+						try {
+							//Laastari, May crash because illegalArgument of currentRegion
+							mRegionSpinner.setSelection(currentRegion);
+							if (e.error == 5)
+								Toast.makeText(Main.getInstance(), "Failed to set region, Device is region locked", Toast.LENGTH_SHORT).show();
+							else
+								storeError(e);
+						} catch (Exception exep) {}
 					} catch (Exception ex){
                         storeError(ex);
                     }
@@ -232,32 +261,11 @@ public class SettingsAppSettingsTab extends Fragment
 			@Override public void onNothingSelected(AdapterView<?> arg0) {  }
 		});
 
-		txLevelSpinnerAdapter = ArrayAdapter.createFromResource(getActivity(), R.array.tx_level_entries, android.R.layout.simple_spinner_item);
+		List<String> txLevels = getTxLevelsFromDevice();
+		txLevelSpinnerAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_spinner_item, txLevels);
 		txLevelSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		txLevelSpinnerAdapter1W = ArrayAdapter.createFromResource(getActivity(), R.array.tx_level_entries_1W, android.R.layout.simple_spinner_item);
-		txLevelSpinnerAdapter1W.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
-		mTxLevelSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
-			@Override
-			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-				if (mApi.isConnected()) {
-					try {
-						mApi.setSetupTxLevel(position);
-						Log.d(TAG, "New tx level: " + position);
-						mApi.storeSetup(NurApi.STORE_RF);
-					} catch (Exception e) {
-						storeError(e);
-					}
-				}
-			}
-			@Override public void onNothingSelected(AdapterView<?> arg0) {  }
-		});
 
-		txLevelSpinnerAdapter = ArrayAdapter.createFromResource(getActivity(), R.array.tx_level_entries, android.R.layout.simple_spinner_item);
-		txLevelSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		txLevelSpinnerAdapter1W = ArrayAdapter.createFromResource(getActivity(), R.array.tx_level_entries_1W, android.R.layout.simple_spinner_item);
-		txLevelSpinnerAdapter1W.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
 		mTxLevelSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
 			@Override
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
@@ -772,10 +780,7 @@ public class SettingsAppSettingsTab extends Fragment
 
 			boolean hasRfProfile = mApi.getDeviceCaps().hasRfProfile();
 
-			if (mApi.getDeviceCaps().isOneWattReader())
-				mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter1W);
-			else
-				mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
+			mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
 
 			NurSetup setup = mApi.getModuleSetup();
 
