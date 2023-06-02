@@ -1,12 +1,10 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 33
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 29
-        versionCode 2
-        versionName "1.1"
+        targetSdkVersion 33
     }
     buildTypes {
         release {
@@ -15,21 +13,12 @@ android {
         }
     }
 
-    lintOptions {
-        abortOnError false
-    }
-
-    android {
-        dexOptions {
-            preDexLibraries = false
-        }
-    }
-
-    buildToolsVersion '29.0.2'
+    buildToolsVersion '34.0.0 rc3'
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
+    namespace 'com.nordicid.apptemplate'
 }
 
 dependencies {
@@ -38,8 +27,8 @@ dependencies {
     implementation files('../TDTLib/TDTLib.jar')
     api project(':NurApiAndroid')
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation 'androidx.appcompat:appcompat:1.0.0'
-    implementation 'com.google.android.gms:play-services-location:17.0.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
     //implementation 'com.android.support:appcompat-v7:27.0.2'
     //implementation 'com.android.support:appcompat-v7:25.4.0'
 }

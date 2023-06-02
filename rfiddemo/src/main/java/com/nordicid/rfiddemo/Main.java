@@ -13,6 +13,7 @@ import com.nordicid.nurapi.BleScanner;
 import com.nordicid.nurapi.NurApiAndroid;
 import com.nordicid.nurapi.*;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
@@ -38,6 +39,9 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import nordicid.com.nurupdate.NurDeviceUpdate;
 
@@ -76,6 +80,8 @@ public class Main extends AppTemplate {
     private boolean mShowSwipeHint = false;
 
     private boolean mDoNotDisconnectOnStop = false;
+
+    private static final int REQUEST_BLE_CODE = 2;
 
     public NurApiAutoConnectTransport getAutoConnectTransport()
     {
@@ -1057,7 +1063,26 @@ public class Main extends AppTemplate {
 
 	void handleConnectionClick()
 	{
-		NurDeviceListActivity.startDeviceRequest(this, mApi);
+        boolean isAllowed = false;
+        //BLE permissions for v11 and lower
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+            if ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED) &&
+                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED))) {
+                isAllowed = true;
+            }
+        } else { //BLE permissions for v12 and higher
+            if ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) &&
+                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED)) &&
+                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED))) {
+                isAllowed = true;
+            }
+        }
+
+        if (isAllowed) {
+            NurDeviceListActivity.startDeviceRequest(this, mApi);
+        } else {
+            Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_SHORT).show();
+        }
 	}
 
     void handleContactClick() {

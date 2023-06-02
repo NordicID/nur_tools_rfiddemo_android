@@ -140,11 +140,11 @@ public class SubAppTabbed extends SubApp {
     public void onDetach() {
         super.onDetach();
 
-        if (sChildFragmentManagerField != null) {
+        /*if (sChildFragmentManagerField != null) {
             try {
                 sChildFragmentManagerField.set(this, null);
             } catch (Exception e) {}
-        }
+        }*/
     }
     /////////////////////////////////////////////////
 }

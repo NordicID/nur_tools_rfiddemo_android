@@ -1,23 +1,18 @@
 apply plugin: 'com.android.application'
 
 android {
-
-    compileSdkVersion 29
+    namespace "com.nordicid.rfiddemo"
+    compileSdkVersion 33
     defaultConfig {
         applicationId "com.nordicid.rfiddemo"
 
         minSdkVersion 21
-        targetSdkVersion 29
-        versionCode 180
-        versionName '1.8.0'
+        targetSdkVersion 33
+        versionCode 191
+        versionName '1.9.1'
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-
-    lintOptions {
-        abortOnError false
-    }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -26,6 +21,32 @@ android {
         debug {
             zipAlignEnabled true
         }
+    }
+
+    android.applicationVariants.all { variant ->
+        variant.outputs.all {
+            if ("${variant.name}" == "debug")
+                outputFileName = "NordicID_RFIDDemo_${variant.name}_v${variant.versionName}.apk"
+            else
+                outputFileName = "NordicID_RFIDDemo_v${variant.versionName}.apk"
+        }
+    }
+
+    buildToolsVersion '34.0.0 rc3'
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        }
+    }
+    lint {
+        checkReleaseBuilds false
+        disable 'MissingTranslation'
+        //disable 'NonConstantResourceId'
     }
 
     // Specifies one flavor dimension.
@@ -49,24 +70,6 @@ android {
     }
 */
 
-    lintOptions {
-        disable 'MissingTranslation'
-        checkReleaseBuilds false
-    }
-    android.applicationVariants.all { variant ->
-        variant.outputs.all {
-            if ("${variant.name}" == "debug")
-                outputFileName = "NordicID_RFIDDemo_${variant.name}_v${variant.versionName}.apk"
-            else
-                outputFileName = "NordicID_RFIDDemo_v${variant.versionName}.apk"
-        }
-    }
-     buildToolsVersion '29.0.2'
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
-    }
-
 }
 
 dependencies {
@@ -79,10 +82,13 @@ dependencies {
     implementation files('../NiduLib/NiduLib.jar')
     implementation files('../TDTLib/TDTLib.jar')
 
-    implementation 'no.nordicsemi.android.support.v18:scanner:1.4.3'
-    implementation 'no.nordicsemi.android:dfu:1.11.0'
-    implementation 'androidx.appcompat:appcompat:1.0.0'
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0'
+    implementation 'no.nordicsemi.android.support.v18:scanner:1.6.0'
+    implementation 'no.nordicsemi.android:dfu:2.3.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    testImplementation 'junit:junit:4.13.2'
+    implementation 'androidx.documentfile:documentfile:1.1.0-alpha01';
+
+    androidTestImplementation 'androidx.test:core:1.5.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }

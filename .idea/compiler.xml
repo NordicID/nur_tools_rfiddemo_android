@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <bytecodeTargetLevel target="1.8" />
+    <bytecodeTargetLevel>
+      <module name="nur_tools_rfiddemo_android_nid.apptemplate" target="17" />
+      <module name="nur_tools_rfiddemo_android_nid.rfiddemo" target="17" />
+    </bytecodeTargetLevel>
   </component>
 </project>

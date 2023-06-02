@@ -49,9 +49,12 @@ import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
 import android.nfc.tech.NfcA;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import androidx.legacy.app.ActionBarDrawerToggle;
+
+//import androidx.legacy.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -131,6 +134,10 @@ public class AppTemplate extends FragmentActivity {
 	//Set parameters for Update job
 	AsyncTask<Void, Void, String> runningTask;
 
+	private static final int REQUEST_LOCATION_CODE = 1;
+	private static final int REQUEST_BLE_CODE = 2;
+	private static final int REQUEST_EXTERNAL_STORAGE_CODE = 3;
+
 	private static AppTemplate gInstance = null;
 	public static AppTemplate getAppTemplate()
 	{
@@ -151,18 +158,27 @@ public class AppTemplate extends FragmentActivity {
 	 */
 	public void refreshLocation()
 	{
-		fusedLocationClient.getLastLocation()
-				.addOnSuccessListener(this, new OnSuccessListener<Location>() {
-					@Override
-					public void onSuccess(Location location) {
+		boolean isAllowed = true;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+					ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+				isAllowed = false;
+				Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
+			}
+		}
 
-						if (location != null) {
-							mGpsString = (String.format(Locale.getDefault(), "%s;%s", location.getLatitude(), location.getLongitude()));
-							Log.w(TAG, "GPS " + mGpsString);
+		if (isAllowed) {
+			fusedLocationClient.getLastLocation()
+					.addOnSuccessListener(this, new OnSuccessListener<Location>() {
+						@Override
+						public void onSuccess(Location location) {
+							if (location != null) {
+								mGpsString = (String.format(Locale.getDefault(), "%s;%s", location.getLatitude(), location.getLongitude()));
+								Log.w(TAG, "GPS " + mGpsString);
+							}
 						}
-					}
-				});
-
+					});
+		}
 	}
 
 	public boolean isRecentConfigurationChange() {
@@ -324,8 +340,56 @@ public class AppTemplate extends FragmentActivity {
 	public void onCreate(Bundle savedInstanceState) {
 		gInstance = this;
 
+		//Location permission
+		if ((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) &&
+				((ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED))) {
+			ActivityCompat.requestPermissions(this,
+					new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+							Manifest.permission.ACCESS_COARSE_LOCATION},
+					REQUEST_LOCATION_CODE);
+		}
+
+		//External storage access till v10
+		//https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE
+		//https://developer.android.com/reference/android/Manifest.permission#WRITE_EXTERNAL_STORAGE
+		if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+			if ((ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) &&
+					((ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED))) {
+				ActivityCompat.requestPermissions(this,
+						new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,
+								Manifest.permission.WRITE_EXTERNAL_STORAGE},
+						REQUEST_EXTERNAL_STORAGE_CODE);
+			}
+		}
+		//Do we really need external storage in v11 and higher?
+		//consider using MANAGE_EXTERNAL_STORAGE
+
+		//BLUETOOTH && BLE_ADMIN set to work till v11
+		//https://developer.android.com/guide/topics/connectivity/bluetooth/permissions
+		if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+			if ((ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) &&
+					((ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED))) {
+				ActivityCompat.requestPermissions(this,
+						new String[]{Manifest.permission.BLUETOOTH,
+								Manifest.permission.BLUETOOTH_ADMIN},
+						REQUEST_BLE_CODE);
+			}
+		} else { //BLE permissions for v12 and higher
+			if ((ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) &&
+					((ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED)) &&
+					((ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED))) {
+				ActivityCompat.requestPermissions(this,
+						new String[]{Manifest.permission.BLUETOOTH_SCAN,
+								Manifest.permission.BLUETOOTH_ADVERTISE,
+								Manifest.permission.BLUETOOTH_CONNECT},
+						REQUEST_BLE_CODE);
+			}
+		}
+
+		//Do we need to check the permission status prior accessing the resource again?
+
 		/** Bluetooth Permission checks **/
-		if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED  ||
+		/*if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED  ||
 				ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED  ||
 				ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
 				ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
@@ -335,7 +399,7 @@ public class AppTemplate extends FragmentActivity {
 					ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE) ||
 					ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
 					) {
-				/** ? ? ? **/
+				// ? ? ? //
 			} else {
 				ActivityCompat.requestPermissions(this, new String[]{
 						Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -344,7 +408,7 @@ public class AppTemplate extends FragmentActivity {
 						Manifest.permission.WRITE_EXTERNAL_STORAGE},
 						APP_PERMISSION_REQ_CODE);
 			}
-		}
+		}*/
 
 		fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -408,7 +472,7 @@ public class AppTemplate extends FragmentActivity {
 				Log.w(TAG, "NFC is enabled");
 			}
 			mPendingIntent = PendingIntent.getActivity(this, 0,
-					new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
+					new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE);
 			mNdefPushMessage = new NdefMessage(new NdefRecord[]{newTextRecord(
 					"Message from NFC Reader :-)", Locale.ENGLISH, true)});
 
@@ -499,7 +563,8 @@ public class AppTemplate extends FragmentActivity {
 		final Intent intent = new Intent(activity.getApplicationContext(), activity.getClass());
 		intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-		final PendingIntent pendingIntent = PendingIntent.getActivity(activity.getApplicationContext(), 0, intent, 0);
+		final PendingIntent pendingIntent = PendingIntent.getActivity(activity.getApplicationContext(),
+				0, intent, PendingIntent.FLAG_IMMUTABLE);
 
 		IntentFilter[] filters = new IntentFilter[1];
 		String[][] techList = new String[][]{};
@@ -518,15 +583,57 @@ public class AppTemplate extends FragmentActivity {
 		Log.w(TAG, "setupForegroundDispatch");
 	}
 
-
-
 	@Override
 	public void onRequestPermissionsResult(int requestCode, final String permissions[], final int[] grantResults) {
+		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 		final List<String> missingPermissions = new ArrayList<>();
 		switch (requestCode) {
+			case REQUEST_LOCATION_CODE:
+				if (grantResults.length > 0 &&
+						grantResults[0] == PackageManager.PERMISSION_DENIED) {
+					AlertDialog.Builder locNotifier = new AlertDialog.Builder(this);
+					locNotifier.setMessage("Application won't function properly without location permissions.")
+							.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									dialog.dismiss();
+								}
+							});
+					locNotifier.create().show();
+				}
+				break;
+			case REQUEST_BLE_CODE:
+				if (grantResults.length > 0 &&
+						grantResults[0] == PackageManager.PERMISSION_DENIED) {
+					AlertDialog.Builder bleNotifier = new AlertDialog.Builder(this);
+					bleNotifier.setMessage("Application won't function properly without bluetooth permissions.")
+							.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									dialog.dismiss();
+								}
+							});
+					bleNotifier.create().show();
+				}
+				break;
+			case REQUEST_EXTERNAL_STORAGE_CODE:
+				if (grantResults.length > 0 &&
+						grantResults[0] == PackageManager.PERMISSION_DENIED) {
+					AlertDialog.Builder externalStorageNotifier = new AlertDialog.Builder(this);
+					externalStorageNotifier.setMessage("Application won't function properly without external storage access permissions.")
+							.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog, int which) {
+									dialog.dismiss();
+								}
+							});
+					externalStorageNotifier.create().show();
+				}
+				break;
+			//below case is no longer applicable
 			case APP_PERMISSION_REQ_CODE: {
 				for (int i = 0; i < grantResults.length; i++) {
-					if(grantResults[i] == PackageManager.PERMISSION_DENIED)
+					if (grantResults[i] == PackageManager.PERMISSION_DENIED)
 						missingPermissions.add(permissions[i]);
 				}
 				if (missingPermissions.size() > 0) {
@@ -539,7 +646,7 @@ public class AppTemplate extends FragmentActivity {
 							})
 							.setNegativeButton("No thanks", new DialogInterface.OnClickListener() {
 								public void onClick(DialogInterface dialog, int id) {
-									Toast.makeText(gInstance,"Missing permissions",Toast.LENGTH_SHORT).show();
+									Toast.makeText(gInstance, "Missing permissions", Toast.LENGTH_SHORT).show();
 								}
 							});
 					builder.create().show();
@@ -1003,8 +1110,10 @@ public class AppTemplate extends FragmentActivity {
 			onCreateDrawerItems(mDrawer);
 		}
 					
+		/*mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout,
+				R.drawable.ic_drawer, R.string.drawer_open, R.string.drawer_close)*/
 		mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout,
-				R.drawable.ic_drawer, R.string.drawer_open, R.string.drawer_close) {
+				R.string.drawer_open, R.string.drawer_close)		{
 	
 				@Override
 				public void onDrawerClosed(View drawerView) {
@@ -1517,6 +1626,7 @@ public class AppTemplate extends FragmentActivity {
 		 *
 		 * In our case this method gets called, when the user attaches a Tag to the device.
 		 */
+		super.onNewIntent(intent);
 		setIntent(intent);
 		resolveIntent(intent);
 	}
