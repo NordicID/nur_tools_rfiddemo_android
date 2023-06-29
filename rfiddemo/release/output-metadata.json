@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "artifactType": {
     "type": "APK",
     "kind": "Directory"
@@ -10,11 +10,11 @@
     {
       "type": "SINGLE",
       "filters": [],
-      "properties": [],
-      "versionCode": 180,
-      "versionName": "1.8.0",
-      "enabled": true,
-      "outputFile": "NordicID_RFIDDemo_v1.8.0.apk"
+      "attributes": [],
+      "versionCode": 195,
+      "versionName": "1.9.5",
+      "outputFile": "NordicID_RFIDDemo_v1.9.5.apk"
     }
-  ]
+  ],
+  "elementType": "File"
 }

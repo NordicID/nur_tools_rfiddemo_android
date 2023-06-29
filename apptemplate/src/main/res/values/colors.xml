@@ -14,4 +14,7 @@
     <color name="button_accent">#f89c1b</color>
     <color name="button_fg">#ffffff</color>
 
+    <color name="hyperlink">#0059b3</color>
+    <!--#0066cc #0059b3-->
+
 </resources>

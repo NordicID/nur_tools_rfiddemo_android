@@ -4,6 +4,10 @@ import com.nordicid.nurapi.*;
 
 import android.content.Context;
 import android.os.Bundle;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -117,7 +121,8 @@ public class SubApp extends Fragment {
 		mButtonBar = (LinearLayout) getActivity().getWindow().getDecorView().findViewById(R.id.app_button_bar);
 		mButtonBarButtonCount = 0;
 		
-		getActivity().getActionBar().setTitle(getAppName());
+		//getActivity().getActionBar().setTitle(getAppName());
+		((AppCompatActivity)getActivity()).getSupportActionBar().setTitle(getAppName());
 		
 		return view;
 	}
@@ -150,7 +155,7 @@ public class SubApp extends Fragment {
 
 		return b;
 	}
-	
+
 	@Override
 	public void onActivityCreated(Bundle savedInstanceState) {
 		super.onActivityCreated(savedInstanceState);

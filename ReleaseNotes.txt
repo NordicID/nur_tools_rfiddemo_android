@@ -1,3 +1,6 @@
+v1.9.5
+- Theme and color changes
+
 v1.9.1
 - API 33
 - Gradle update

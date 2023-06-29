@@ -30,13 +30,15 @@ import com.nordicid.nidulib.*;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
+//import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -55,13 +57,18 @@ import android.os.Handler;
 
 //import androidx.legacy.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.core.graphics.drawable.DrawableCompat;
 
 import android.os.IBinder;
 import android.os.Parcel;
@@ -89,7 +96,7 @@ import android.widget.Toast;
  * 
  */
 
-public class AppTemplate extends FragmentActivity {
+public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 
 	static final String TAG = "AppTemplate";
 	public static final String MIME_TEXT_PLAIN = "text/plain";
@@ -137,6 +144,8 @@ public class AppTemplate extends FragmentActivity {
 	private static final int REQUEST_LOCATION_CODE = 1;
 	private static final int REQUEST_BLE_CODE = 2;
 	private static final int REQUEST_EXTERNAL_STORAGE_CODE = 3;
+
+	private Toolbar mToolbar;
 
 	private static AppTemplate gInstance = null;
 	public static AppTemplate getAppTemplate()
@@ -441,6 +450,9 @@ public class AppTemplate extends FragmentActivity {
 		TypefaceOverrider.setDefaultFont(getApplicationContext(), "MONOSPACE", getPahtToTypeface());
 
 		setContentView(R.layout.main);
+
+		mToolbar = findViewById(R.id.toolbar);
+		setSupportActionBar(mToolbar);
 
 		mDrawerLayout = (DrawerLayout) findViewById(R.id.drawerLayout);
 		mDrawer = new Drawer();
@@ -1043,7 +1055,7 @@ public class AppTemplate extends FragmentActivity {
 				if (mCloseButton != null)
 					mCloseButton.setVisible(false);
 
-				getActionBar().setTitle(R.string.app_name);
+				getSupportActionBar().setTitle(R.string.app_name);
 			}
 			else
 			{
@@ -1061,7 +1073,7 @@ public class AppTemplate extends FragmentActivity {
 				mFragmentTransaction.commit();
 				lastSetFragment = currentOpenSubApp;
 
-				getActionBar().setTitle(currentOpenSubApp.getAppName());
+				getSupportActionBar().setTitle(currentOpenSubApp.getAppName());
 
 				if (mCloseButton != null)
 					mCloseButton.setVisible(true);
@@ -1109,11 +1121,9 @@ public class AppTemplate extends FragmentActivity {
 		if (addItems) {
 			onCreateDrawerItems(mDrawer);
 		}
-					
-		/*mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout,
-				R.drawable.ic_drawer, R.string.drawer_open, R.string.drawer_close)*/
-		mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout,
-				R.string.drawer_open, R.string.drawer_close)		{
+
+		mDrawerToggle = new ActionBarDrawerToggle(this, mDrawerLayout, mToolbar,
+				R.string.drawer_open, R.string.drawer_close){
 	
 				@Override
 				public void onDrawerClosed(View drawerView) {
@@ -1131,10 +1141,8 @@ public class AppTemplate extends FragmentActivity {
 		mDrawerList = (ListView) findViewById(R.id.left_drawer);
 		mDrawerList.setAdapter(new DrawerItemAdapter(this,mDrawer.getDrawerItemTitles()));
 		mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
-		mDrawerLayout.setDrawerListener(mDrawerToggle);
-		getActionBar().setDisplayHomeAsUpEnabled(true);
-		getActionBar().setHomeButtonEnabled(true);
-
+		mDrawerLayout.addDrawerListener(mDrawerToggle);
+		mDrawerToggle.syncState();
 	}
 	
 	/**
