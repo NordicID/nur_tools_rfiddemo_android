@@ -1,5 +1,5 @@
-v1.9.5
-- Theme and color changes
+v1.9.6
+- Bluetooth permission fixes
 
 v1.9.1
 - API 33

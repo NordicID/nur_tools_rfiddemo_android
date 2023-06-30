@@ -1081,7 +1081,7 @@ public class Main extends AppTemplate {
         if (isAllowed) {
             NurDeviceListActivity.startDeviceRequest(this, mApi);
         } else {
-            Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Bluetooth permission denied.\nPlease make sure Bluetooth is enabled and permission is allowed.", Toast.LENGTH_LONG).show();
         }
 	}
 
