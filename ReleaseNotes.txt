@@ -1,5 +1,14 @@
+v1.9.7
+- Fixes to meet Google Play requirements
+
 v1.9.6
 - Bluetooth permission fixes
+- Theme and color fixes
+
+v1.9.5
+- Update NurApiAndroid
+- Update NurApi
+- Fixed USB connection
 
 v1.9.1
 - API 33
