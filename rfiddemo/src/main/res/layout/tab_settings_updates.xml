@@ -15,8 +15,8 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:paddingTop="50dp"
-            android:text="DEVICE UP TO DATE"
-            android:textColor="@color/StatusGreen"
+            android:text="Disconnected"
+            android:textColor="@color/black"
             android:textSize="24sp" />
 
         <TextView
@@ -25,7 +25,6 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:paddingTop="5dp"
-            android:text="AvailUpdate.bin"
             android:textColor="@color/StatusRed"
             android:textSize="16sp" />
 

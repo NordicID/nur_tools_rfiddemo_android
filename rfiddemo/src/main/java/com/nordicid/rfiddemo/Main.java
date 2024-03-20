@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import com.nordicid.apptemplate.AppTemplate;
 import com.nordicid.apptemplate.SubAppList;
+import com.nordicid.nidulib.NiduLib;
 import com.nordicid.nurapi.BleScanner;
 import com.nordicid.nurapi.NurApiAndroid;
 import com.nordicid.nurapi.*;
@@ -1117,6 +1118,7 @@ public class Main extends AppTemplate {
             verStr += "; SmartPair " + NurSmartPairSupport.getVersion();
         }
         verStr +="; NurUpdateLib " + NurDeviceUpdate.getVersion();
+        verStr +="; NiduLib " + NiduLib.version();
         nurApiVersion.setText(verStr);
 
         if (getNurApi().isConnected()) {

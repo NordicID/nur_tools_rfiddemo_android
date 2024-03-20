@@ -81,7 +81,6 @@ public class SettingsAppHidTab extends Fragment {
     CheckBox mSpSensitivityCheckBox;
 	TextView mWirelessChargingLabel;
 
-	Button mButtonSetPasskey;
 	Button mButtonBond;
 	Button mButtonRebootDevice;
 	
@@ -157,76 +156,7 @@ public class SettingsAppHidTab extends Fragment {
 		}
 	}
 
-	void passkeyInput()
-	{
-		final AlertDialog regAlertDlg;
-
-		try {
-			if (mExt.getConfig().isDeviceEXA21() == false) {
-				Toast.makeText(getContext(), "Sorry, for EXA21 only", Toast.LENGTH_LONG).show();
-				return;
-			}
-		}catch (Exception e) {
-			Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
-			return;
-		}
-
-		final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-		builder.setTitle("EXA21 6-digit passkey");
-
-		final EditText input = new EditText(getContext());
-		input.setInputType(InputType.TYPE_CLASS_NUMBER); // | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-		int maxLength = 6;
-		input.setFilters(new InputFilter[] {new InputFilter.LengthFilter(maxLength)});
-		try {
-			input.setText(mExt.getBLEPasskey());
-		}catch (Exception e) {}
-		builder.setView(input);
-
-		builder.setPositiveButton("SET", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				try {
-					mExt.setBLEPasskey(input.getText().toString());
-					String txt = mExt.getBLEPasskey();
-					Toast.makeText(getContext(), "Passkey=" + txt, Toast.LENGTH_LONG).show();
-				}
-				catch (Exception e) {
-					Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
-				}
-			}
-		});
-		builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.cancel();
-			}
-		});
-
-		regAlertDlg = builder.create();
-		regAlertDlg.show();
-
-		input.addTextChangedListener(new TextWatcher() {
-			@Override
-			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-			}
-
-			@Override
-			public void onTextChanged(CharSequence s, int start, int before, int count) {
-				if(s.length() == 6) {
-					regAlertDlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-				}
-				else  regAlertDlg.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-			}
-
-			@Override
-			public void afterTextChanged(Editable s) {
-
-			}
-		});
-	}
-
+	
 	void iterateBluetoothDevices() {
 		mBondFound=false;
 		try {
@@ -285,7 +215,6 @@ public class SettingsAppHidTab extends Fragment {
 	private void enableItems(boolean v) {
 		mHidBarcodeCheckBox.setEnabled(v);
 		mHidRFIDCheckBox.setEnabled(v);
-		mButtonSetPasskey.setEnabled(v);
 		mButtonBond.setEnabled(v);
 		mButtonRebootDevice.setEnabled(v);
 		mWirelessChargingCheckBox.setEnabled(v);
@@ -354,7 +283,7 @@ public class SettingsAppHidTab extends Fragment {
 				String appver = removeSpecificChars(info.getApplicationVersion(), ".");
 
 				int ver = Integer.parseInt(appver);
-				if (ver >= 221) {
+				if (ver >= 221 || cfg.isDeviceEXA81()) {
 					mAllowPairingCheckBox.setEnabled(true);
 				} else {
 					mAllowPairingCheckBox.setEnabled(false);
@@ -365,7 +294,6 @@ public class SettingsAppHidTab extends Fragment {
 				if (addr != null && addr.equals("integrated_reader")) {
 					mHidBarcodeCheckBox.setEnabled(false);
 					mHidRFIDCheckBox.setEnabled(false);
-					mButtonSetPasskey.setEnabled(false);
 					mButtonBond.setEnabled(false);
 					mAllowPairingCheckBox.setEnabled(false);
 				}
@@ -375,7 +303,7 @@ public class SettingsAppHidTab extends Fragment {
 				}
 				else mSpAutodisconExa51CheckBox.setEnabled(false);
 
-				if(cfg.hasImagerScanner() && cfg.getAllowPairingState())
+				if((cfg.hasImagerScanner() && cfg.getAllowPairingState()) || cfg.isDeviceEXA81())
 					mHidBarcodeCheckBox.setChecked(cfg.getHidBarCode());
 				else mHidBarcodeCheckBox.setEnabled(false);
 
@@ -385,12 +313,6 @@ public class SettingsAppHidTab extends Fragment {
 
 				if(cfg.getAllowPairingState())
 				{
-					if(cfg.isDeviceEXA21()) {
-						mButtonSetPasskey.setEnabled(true);
-					}
-					else
-						mButtonSetPasskey.setEnabled(false);
-
 					mButtonBond.setEnabled(true);
 
 					if(mBondFound){
@@ -403,7 +325,6 @@ public class SettingsAppHidTab extends Fragment {
 					}
 				}
 				else {
-					mButtonSetPasskey.setEnabled(false);
 					mButtonBond.setEnabled(false);
 					mBondFound=false;
 				}
@@ -478,12 +399,6 @@ public class SettingsAppHidTab extends Fragment {
 			cfg.setAllowPairingState(mAllowPairingCheckBox.isChecked());
 			mExt.setConfig(cfg);
 			readCurrentSetup();
-			/*
-			if(cfg.isDeviceEXA21())
-				mButtonSetPasskey.setEnabled(cfg.getAllowPairingState());
-			else mButtonSetPasskey.setEnabled(false);
-			*/
-			//Toast.makeText(getContext(), "Rebooting device required!", Toast.LENGTH_LONG).show();
 
 			if(cfg.getAllowPairingState()==false && mBondFound) {
 				//device paired and now user want to disable pairing.
@@ -624,7 +539,6 @@ public class SettingsAppHidTab extends Fragment {
 		mWirelessChargingCheckBox = (CheckBox)view.findViewById(R.id.hid_wireless_charging_checkbox);
 		mAllowPairingCheckBox = (CheckBox)view.findViewById(R.id.allow_pairing_checkbox);
         mWirelessChargingLabel = (TextView)view.findViewById(R.id.hid_wireless_charging_label);
-        mButtonSetPasskey = (Button)view.findViewById(R.id.buttonSetPasskey);
         mButtonBond = (Button)view.findViewById(R.id.buttonBond);
 
         mButtonRebootDevice = (Button)view.findViewById(R.id.buttonReboot);
@@ -639,13 +553,6 @@ public class SettingsAppHidTab extends Fragment {
             mSpLayout.setVisibility(View.GONE);
 
         iterateBluetoothDevices();
-
-        mButtonSetPasskey.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				passkeyInput();
-			}
-		});
 
         mButtonRebootDevice.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -686,8 +593,8 @@ public class SettingsAppHidTab extends Fragment {
 							AccConfig cfg=mExt.getConfig();
 							pairDevice(device);
 
-							if(cfg.isDeviceEXA21()==false) {
-								Thread.sleep(3000);
+							if(!cfg.isDeviceEXA21() && !cfg.isDeviceEXA81()) {
+								Thread.sleep(5000);
 
 								iterateBluetoothDevices();
 								if (mBondFound) {

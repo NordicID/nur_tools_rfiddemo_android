@@ -12,17 +12,21 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nordicid.apptemplate.AppTemplate;
+import com.nordicid.nidulib.NiduLib;
+import com.nordicid.nidulib.NiduLibListener;
 import com.nordicid.nidulib.UpdateItem;
 import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiAutoConnectTransport;
 
 import java.util.ArrayList;
+
 import nordicid.com.nurupdate.NurUpdateParams;
+
 import static com.nordicid.apptemplate.AppTemplate.getAppTemplate;
 
 public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implements View.OnClickListener {
-
+    static final String TAG = "Update";
     static final int UPDATE_RESULT = 1;  // The request code
 
     SettingsAppTabbed mOwner;
@@ -32,6 +36,7 @@ public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implem
 
     NurApi mApi;
     AccessoryExtension mExt;
+    static NiduLib nidu = null;
     NurApiAutoConnectTransport mAutoTransport;
 
     //Set parameters for Update job
@@ -39,7 +44,10 @@ public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implem
     Button mFilePicker;
     Button mRemoteFilePicker;
 
-    public SettingsAppUpdatesTab(){
+    Thread validateThread = null;
+    static ArrayList<UpdateItem> availUpdatesList;
+
+    public SettingsAppUpdatesTab() {
 
         mOwner = SettingsAppTabbed.getInstance();
         mApi = mOwner.getNurApi();
@@ -47,65 +55,76 @@ public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implem
         mExt = AppTemplate.getAppTemplate().getAccessoryApi();
         updateParams = new NurUpdateParams();
         getAppTemplate().mUpdatePending = false;
+
+        nidu = new NiduLib();
+        nidu.setNurApi(mApi);
+        nidu.setAccessoryExtension(mExt);
+        nidu.setListener(mNiduLibListener);
     }
 
-    public void showAvailUpdatesStatus() {
+    NiduLibListener mNiduLibListener = (event, i, o) -> {
+        switch (event) {
+            case LOG:
+                Log.i(TAG, "LOG:" + o.toString());
+                break;
+            case STATUS:
+                Log.i(TAG, "STATUS:" + o.toString());
+                break;
+            case VALIDATE:
+                break;
+        }
+    };
 
-        if(getAppTemplate().mUpdatePending) return; //if updating pending, do not show get availUpdates.
+    public synchronized void showAvailUpdatesStatus() {
+        if (mRemoteFilePicker == null) return; //UI Not yet initialized
 
-        getAppTemplate().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                ArrayList<UpdateItem> availUpdatesList=null;
-                if(mRemoteFilePicker == null)
-                    return; //UI Not yet initialized
+        mTxtHdr.setTextColor(Color.BLACK);
 
-                mRemoteFilePicker.setEnabled(false);
+        if (!mApi.isConnected()) {
+            mTxtHdr.setText("Disconnected");
+            return;
+        }
 
-                if(mApi.isConnected()) {
-                    getAppTemplate().refreshAvailableUpdates();
-                    availUpdatesList = getAppTemplate().getAvailableUpdates();
-                    if(availUpdatesList == null)
-                    {
-                        if(getAppTemplate().getAvailUpdDownloadStatus() == 1)
-                            mTxtHdr.setText("Loading update info...");
-                        else
-                           mTxtHdr.setText("Cannot load update info!");
+        mTxtHdr.setText("Loading update info...");
 
-                        mTxtHdr.setTextColor(Color.RED);
-                        mTxtAvail.setText("");
-                    } else {
-                        if(availUpdatesList.size() > 0) {
-                            mTxtHdr.setText("Available updates");
-                            mTxtHdr.setTextColor(Color.BLUE);
-                            String listTxt="";
-                            for(int x=0;x<availUpdatesList.size();x++) {
-                                listTxt += availUpdatesList.get(x).name + System.getProperty("line.separator");
-                            }
-                            mTxtAvail.setText(listTxt);
-                            mTxtAvail.setTextColor(Color.RED);
-                            mRemoteFilePicker.setEnabled(true);
+        if (getAppTemplate().mUpdatePending) {
+            mTxtHdr.setText("Updating..");
+            return;
+        }
 
-                        }
-                        else {
-                            mTxtHdr.setText("Device UP-TO-DATE");
-                            mTxtHdr.setTextColor(Color.rgb(0,128,0));
-                            mTxtAvail.setText("");
-                        }
+        if (validateThread != null) {
+            if (validateThread.isAlive()) return;
+        }
+
+        validateThread = new Thread(() -> {
+            try {
+                byte[] updInfo = NiduLib.DownLoadFromURL("https://raw.githubusercontent.com/NordicID/nur_firmware/master/zip/NIDLatestFW.json");
+                availUpdatesList = nidu.GetAvailableUpdates(updInfo);
+            } catch (Exception e) {
+                mTxtHdr.setText("Invalid file!");
+                return;
+            }
+
+            getAppTemplate().runOnUiThread(() -> {
+                if (availUpdatesList.size() > 0) {
+                    mTxtHdr.setText("Available updates");
+                    mTxtHdr.setTextColor(Color.BLUE);
+                    StringBuilder listTxt = new StringBuilder();
+                    for (int x = 0; x < availUpdatesList.size(); x++) {
+                        listTxt.append(availUpdatesList.get(x).name).append(System.getProperty("line.separator"));
                     }
-                }
-                else {
-                    if(getAppTemplate().mUpdatePending==true)
-                        mTxtHdr.setText("Updating..");
-                    else
-                        mTxtHdr.setText("Disconnected");
-                    mTxtHdr.setTextColor(Color.BLACK);
+                    mTxtAvail.setText(listTxt.toString());
+                    mTxtAvail.setTextColor(Color.RED);
+                    mRemoteFilePicker.setEnabled(true);
+
+                } else {
+                    mTxtHdr.setText("Device UP-TO-DATE");
+                    mTxtHdr.setTextColor(Color.rgb(0, 128, 0));
                     mTxtAvail.setText("");
                 }
-
-
-            }
+            });
         });
+        validateThread.start();
     }
 
     @Override
@@ -121,19 +140,20 @@ public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implem
         mRemoteFilePicker.setOnClickListener(this);
 
         showAvailUpdatesStatus();
+
         return view;
     }
 
     @Override
-    public void onClick(View view){
+    public void onClick(View view) {
 
         //NurApi instance
         updateParams.setNurApi(mApi);
         //Possible Nur accessory instance
         updateParams.setAccessoryExtension(mExt);
         //If we are connected to device via Bluetooth, give current ble address.
-        mAutoTransport =  Main.getInstance().getAutoConnectTransport();
-        if(mApi.isConnected() == false || mAutoTransport == null) {
+        mAutoTransport = Main.getInstance().getAutoConnectTransport();
+        if (!mApi.isConnected() || mAutoTransport == null) {
             //Transport not connected
             Toast.makeText(Main.getInstance(), "Transport not connected", Toast.LENGTH_SHORT).show();
             return;
@@ -141,84 +161,73 @@ public class SettingsAppUpdatesTab extends androidx.fragment.app.Fragment implem
 
         updateParams.setDeviceAddress(mAutoTransport.getAddress());
 
-        switch (view.getId()){
-            case R.id.btn_select_file: //Local storage
+        switch (view.getId()) {
+            case R.id.btn_select_file -> { //Local storage
                 //Force user to select zip from the filesystem
                 updateParams.setZipPath("");
                 showNurUpdateUI();
-                break;
-            case R.id.btn_download_file: //NORDIC ID Servers
+            }
+            case R.id.btn_download_file -> { //NORDIC ID Servers
                 //Load from Nordic ID server.
                 updateParams.setZipPath("https://raw.githubusercontent.com/NordicID/nur_firmware/master/zip/NIDLatestFW.zip");
                 showNurUpdateUI();
-                break;
-
+            }
         }
     }
 
-    boolean showNurUpdateUI()
-    {
-        getAppTemplate().mUpdatePending=false;
-
+    void showNurUpdateUI() {
+        getAppTemplate().mUpdatePending = false;
         try {
-
-            Intent startIntent = new Intent(mOwner.getContext(), Class.forName ("nordicid.com.nurupdate.NurDeviceUpdate"));
+            Intent startIntent = new Intent(mOwner.getContext(), Class.forName("nordicid.com.nurupdate.NurDeviceUpdate"));
             //startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivityForResult(startIntent, UPDATE_RESULT);
-            getAppTemplate().mUpdatePending=true;
-
-            return true;
+            getAppTemplate().mUpdatePending = true;
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        return false;
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         // Check which request we're responding to
 
-        getAppTemplate().mUpdatePending=false;
+        getAppTemplate().mUpdatePending = false;
 
-        Log.i("AppTemp","onActivityResult reqCode=" + requestCode + " Result=" + resultCode);
+        Log.i("AppTemp", "onActivityResult reqCode=" + requestCode + " Result=" + resultCode);
         if (requestCode == UPDATE_RESULT) {
-            getAppTemplate().refreshAvailableUpdates();
             showAvailUpdatesStatus();
         }
     }
 
     @Override
-    public void onStart(){
+    public void onStart() {
         super.onStart();
-        Log.i("AppTemp","UPD: OnStart...");
+        Log.i("AppTemp", "UPD: OnStart...");
         Main.getInstance().setDoNotDisconnectOnStop(true);
     }
 
     @Override
-    public void onResume(){
+    public void onResume() {
         super.onResume();
-        Log.i("AppTemp","UPD: OnResume...");
+        Log.i("AppTemp", "UPD: OnResume...");
     }
 
     @Override
-    public void onPause(){
-
+    public void onPause() {
         super.onPause();
-        Log.i("AppTemp","UPD: OnPause....");
-
+        Log.i("AppTemp", "UPD: OnPause....");
     }
 
     @Override
-    public void onStop(){
+    public void onStop() {
         super.onStop();
-        Log.i("AppTemp","UPD:OnStop....");
+        Log.i("AppTemp", "UPD:OnStop....");
     }
 
     @Override
-    public void onDestroy(){
+    public void onDestroy() {
         super.onDestroy();
-        Log.i("AppTemp","UPD:onDestroy....");
+        Log.i("AppTemp", "UPD:onDestroy....");
         Main.getInstance().setDoNotDisconnectOnStop(false);
     }
 }

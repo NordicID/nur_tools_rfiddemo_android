@@ -303,6 +303,7 @@ public class BarcodeApp extends SubApp {
 	private void bleTrigger(int dir)
 	{
 		boolean aim=false;
+		boolean sendAim = true;
 
 		Log.e(TAG,"TRG dir=" + String.valueOf(dir));
 
@@ -319,8 +320,13 @@ public class BarcodeApp extends SubApp {
 
 			try
 			{
-				mAccessoryExt.imagerAIM(aim);
-				mAimerNotSupported = false;
+				if (mBleCfg != null && (mBleCfg.getHidBarCode() || mBleCfg.getHidRFID()))
+					sendAim = false;
+
+				if (sendAim) {
+					mAccessoryExt.imagerAIM(aim);
+					mAimerNotSupported = false;
+				}
 			}
 			catch (Exception e)
 			{

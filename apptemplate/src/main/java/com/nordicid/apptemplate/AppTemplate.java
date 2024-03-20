@@ -133,14 +133,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 	public boolean mUpdatePending;
 	public boolean mNFCToastAlredyShown;
 
-	protected NiduLib nidu;
-	byte [] updInfo; //Byte array of UpdateInfo data downloaded earlier
-	ArrayList<UpdateItem> availUpdatesList;
-	static int availUpdDownloadStatus; //-1 = init 0=Download error 1=Download pending 2=Download success.
-
-	//Set parameters for Update job
-	AsyncTask<Void, Void, String> runningTask;
-
 	private static final int REQUEST_LOCATION_CODE = 1;
 	private static final int REQUEST_BLE_CODE = 2;
 	private static final int REQUEST_EXTERNAL_STORAGE_CODE = 3;
@@ -152,7 +144,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 	{
 		return gInstance;
 	}
-	public static int getAvailUpdDownloadStatus() { return availUpdDownloadStatus;}
 
 	/**
 	 * Get latitude and longitude
@@ -256,15 +247,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 		public void connectedEvent() {
 			try {
 				mAccessorySupported = getAccessoryApi().isSupported();
-				if(availUpdDownloadStatus == 0) {
-					if(runningTask != null) {
-						runningTask.cancel(true);
-					}
-
-					runningTask = new DownLoadAvailableUpdates();
-					runningTask.execute();
-				}
-				//refreshAvailableUpdates();
 			} catch (Exception e)
 			{
 				mAccessorySupported = false;
@@ -435,13 +417,7 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 		});
 		
 		mApi.setListener(mNurApiListener);
-
-		nidu = new NiduLib();
-		nidu.setNurApi(mApi);
-		nidu.setAccessoryExtension(mAccessoryApi);
-		nidu.setListener(mNiduLibListener);
-
-		availUpdDownloadStatus = -1;
+		
 		mNFCToastAlredyShown = false;
 		mUpdatePending = false;
 
@@ -471,9 +447,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 		
 		//Adds the users SubApps to SubAppList
 		onCreateSubApps(mSubAppList);
-
-		runningTask = new DownLoadAvailableUpdates();
-		runningTask.execute();
 
 		mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
@@ -509,36 +482,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 		}
 
 		super.onCreate(savedInstanceState);
-	}
-
-	private final class DownLoadAvailableUpdates extends AsyncTask<Void, Void, String> {
-
-		@Override
-		protected String doInBackground(Void... params) {
-			//byte[] arr;
-			availUpdDownloadStatus=1;
-			try {
-				Log.i(TAG,"Download..");
-				updInfo = NiduLib.DownLoadFromURL("https://raw.githubusercontent.com/NordicID/nur_firmware/master/zip/NIDLatestFW.json");
-				refreshAvailableUpdates();
-				availUpdDownloadStatus=2;
-				//availUpdatesList = nidu.GetAvailableUpdates(updInfo);
-				//Log.i(TAG,"availUpdatesList size=" + availUpdatesList.size());
-			}catch (Exception e) {
-				Log.i(TAG,"Download Error:" + e.getMessage());
-				availUpdDownloadStatus=0;
-				e.printStackTrace();
-				updInfo=null;
-				return e.getMessage();
-			}
-
-			return "Bytes received:" + updInfo.length ;
-		}
-
-		@Override
-		protected void onPostExecute(String result) {
-			Log.i(TAG,"onPostExecute=" + result);
-		}
 	}
 
 	private NdefRecord newTextRecord(String text, Locale locale, boolean encodeInUtf8) {
@@ -669,38 +612,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 	}
 
 	long mLastBattUpdate = 0;
-
-	NiduLibListener mNiduLibListener = new NiduLibListener() {
-		@Override
-		public void niduEvent(Event event, int i, Object o) {
-			switch (event) {
-
-				case LOG:
-					Log.i(TAG, "LOG:" + o.toString());
-					break;
-
-				case STATUS:
-					Log.i(TAG, "STATUS:" + o.toString());
-					break;
-
-				case VALIDATE:
-
-					if (nidu.ValidateEXA(i)) {
-						Log.i(TAG, nidu.getUpdateItem(i).name + " Validate EXA OK");
-						//It looks like this device need this new firmware
-						//SaveToFile(ui.filename,i);
-						nidu.getUpdateItem(i).status = Status.READY;
-						nidu.setStatus(Status.READY); //forces to do programming
-						Log.i(TAG, (nidu.getUpdateItem(i).name + " READY TO UPDATE Status=" + nidu.getUpdateItem(i).status));
-					} else {
-						Log.i(TAG, "EXA " + nidu.getUpdateItem(i).name + " Validate FAIL");
-					}
-
-
-					break;
-			}
-		}
-	};
 
 	public void setStatusText(String text)
 	{
@@ -984,31 +895,6 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 
 	public AccessoryExtension getAccessoryApi() { return mAccessoryApi; }
 	public boolean getAccessorySupported() { return mAccessorySupported; }
-	public void refreshAvailableUpdates()
-	{
-		Log.w(TAG, "refreshAvailableUpdates");
-		if(updInfo != null)
-		{
-			try {
-				availUpdatesList = nidu.GetAvailableUpdates(updInfo);
-			}
-			catch (Exception e) {
-				Log.e(TAG,"ERR: refreshAvailableUpdates:" + e.getMessage());
-				updInfo = null;
-			}
-		}
-	}
-
-	public ArrayList<UpdateItem> getAvailableUpdates()
-	{
-		Log.w(TAG, "getAvailableUpdates");
-		if(updInfo != null)
-		{
-			return availUpdatesList;
-		}
-
-		return null;
-	}
 
 	public void setEnableBattUpdate(boolean val) { mEnableBattUpdate = val; }
 
@@ -1078,6 +964,10 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 				if (mCloseButton != null)
 					mCloseButton.setVisible(true);
 			}
+
+			mToolbar = findViewById(R.id.toolbar);
+			setSupportActionBar(mToolbar);
+
 		}
 		else
 		{
@@ -1105,6 +995,10 @@ public class AppTemplate extends AppCompatActivity { // FragmentActivity {
 				mFragmentTransaction.replace(R.id.menu_container, mSubAppList);
 				mFragmentTransaction.commit();
 			}
+
+			mToolbar = findViewById(R.id.toolbar);
+			setSupportActionBar(mToolbar);
+
 		}
 
 		changeSubAppListener();

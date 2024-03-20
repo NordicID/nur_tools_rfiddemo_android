@@ -11,9 +11,9 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 195,
-      "versionName": "1.9.5",
-      "outputFile": "NordicID_RFIDDemo_v1.9.5.apk"
+      "versionCode": 220,
+      "versionName": "2.2.0",
+      "outputFile": "NordicID_RFIDDemo_v2.2.0.apk"
     }
   ],
   "elementType": "File"

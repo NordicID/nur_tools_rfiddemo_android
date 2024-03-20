@@ -261,11 +261,6 @@ public class SettingsAppSettingsTab extends Fragment
 			@Override public void onNothingSelected(AdapterView<?> arg0) {  }
 		});
 
-		List<String> txLevels = getTxLevelsFromDevice();
-		txLevelSpinnerAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_spinner_item, txLevels);
-		txLevelSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
-
 		mTxLevelSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
 			@Override
 			public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
@@ -780,7 +775,10 @@ public class SettingsAppSettingsTab extends Fragment
 
 			boolean hasRfProfile = mApi.getDeviceCaps().hasRfProfile();
 
-			mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
+			List<String> txLevels = getTxLevelsFromDevice();
+		txLevelSpinnerAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_spinner_item, txLevels);
+		txLevelSpinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		mTxLevelSpinner.setAdapter(txLevelSpinnerAdapter);
 
 			NurSetup setup = mApi.getModuleSetup();
 
