@@ -17,6 +17,8 @@ import com.nordicid.nurapi.NurEventTraceTag;
 import com.nordicid.nurapi.NurEventTriggeredRead;
 import com.nordicid.nurapi.NurRespReadData;
 import com.nordicid.rfiddemo.Beeper;
+import com.nordicid.rfiddemo.Main;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
@@ -28,7 +30,7 @@ public class TraceTagController {
 	private TracedTagInfo mTracedTagInfo = new TracedTagInfo();
 	private TraceTagListener mTraceListener;
 	private TraceAntennaSelector mTraceAntSelector = new TraceAntennaSelector();
-
+	private int mLocateTagDataTrans;
 	private long mUpdateInterVal = 100;
 
 	private Handler mHandler;
@@ -104,6 +106,49 @@ public class TraceTagController {
 		@Override
 		public void tagTrackingChangeEvent(NurEventTagTrackingChange event) { }
 	};
+
+	public void LoadLocateSettings()
+	{
+		SharedPreferences settings = Main.getApplicationPrefences();
+		mLocateTagDataTrans = settings.getInt("LocateTagDataTrans",0);
+	}
+
+	public static boolean isValidAscii(byte[] epc) {
+		boolean nullReached = false;
+		boolean validTDT = true;
+
+		for (int j = 0; j < epc.length; j++) {
+			// Check if the current byte is a null character (0x00)
+			if (epc[j] == 0) {
+				nullReached = true;
+				continue;
+			}
+			// Check if the byte is outside the printable ASCII range (0x20 to 0x7F)
+			if (epc[j] < 0x20 || epc[j] > 0x7F) {
+				validTDT = false;
+				break;
+			}
+			if (nullReached) {
+				validTDT = false;
+				break;
+			}
+		}
+
+		return validTDT;
+	}
+
+	public static String asciiToHex(String ascii) {
+		StringBuilder hex = new StringBuilder();
+		for (int i = 0; i < ascii.length(); i++) {
+			char c = ascii.charAt(i);
+			String hexValue = Integer.toHexString((int) c);
+			if (hexValue.length() == 1) {
+				hexValue = "0" + hexValue;
+			}
+			hex.append(hexValue);
+		}
+		return hex.toString();
+	}
 
 	public TraceTagController(NurApi na) {
 		mHandler = new Handler(Looper.getMainLooper());

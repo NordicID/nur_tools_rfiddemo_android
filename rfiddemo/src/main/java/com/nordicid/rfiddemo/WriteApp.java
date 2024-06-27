@@ -82,7 +82,7 @@ public class WriteApp extends SubApp {
 		mEmptyView = (RelativeLayout) view.findViewById(R.id.listview_empty);
 		
 		//sets the adapter for listview
-		mTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
+		mTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc_translated","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 		mTagsListView.setAdapter(mTagsListViewAdapter);
 		mTagsListView.setEmptyView(mEmptyView);
 		mTagsListView.setCacheColorHint(0);
@@ -93,7 +93,6 @@ public class WriteApp extends SubApp {
 				@SuppressWarnings("unchecked")
 				final HashMap<String, String> mSelectedTag = (HashMap<String,String>) mTagsListView.getItemAtPosition(position);
 				showWriteDialog(mSelectedTag);
-				
 			}
 		});
 
@@ -102,6 +101,7 @@ public class WriteApp extends SubApp {
 			@Override
 			public void onClick(View v) {
 				try {
+					mInventoryController.LoadInventorySettings();
 					if (!mInventoryController.doSingleInventory(true)) {
 						Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
 					}
@@ -124,14 +124,11 @@ public class WriteApp extends SubApp {
 		final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
 		
 		builder.setView(dialogLayout);
-		
-		String currentEpc = tag.get("epc");
-		
 		final TextView currentEpcTextView = (TextView) dialogLayout.findViewById(R.id.write_dialog_current);
-		currentEpcTextView.setText(currentEpc);
-		
+		currentEpcTextView.setText(tag.get("epc_translated"));
+
 		final EditText newEpcEditText = (EditText) dialogLayout.findViewById(R.id.write_dialog_new);
-		newEpcEditText.setText(currentEpc);
+		newEpcEditText.setText(tag.get("epc"));
 		
 		newEpcOK = true;
 		
@@ -190,7 +187,7 @@ public class WriteApp extends SubApp {
 				if (newEpcOK) {
                     try {
                         byte[] newEpc = NurApi.hexStringToByteArray(newEpcEditText.getText().toString());
-                        byte[] currentEpc = NurApi.hexStringToByteArray(currentEpcTextView.getText().toString());
+                        byte[] currentEpc = NurApi.hexStringToByteArray(tag.get("epc"));
 						//Log.e("0","oldLen="+String.valueOf(newEpc.length) + " NewLen=" + String.valueOf(currentEpc.length));
                         boolean succeeded = mTagWriteController.writeTagByEpc(currentEpc, currentEpc.length, newEpc.length, newEpc);
 

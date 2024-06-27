@@ -11,10 +11,27 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 220,
-      "versionName": "2.2.0",
-      "outputFile": "NordicID_RFIDDemo_v2.2.0.apk"
+      "versionCode": 241,
+      "versionName": "2.4.1",
+      "outputFile": "NordicID_RFIDDemo_v2.4.1.apk"
     }
   ],
-  "elementType": "File"
+  "elementType": "File",
+  "baselineProfiles": [
+    {
+      "minApi": 28,
+      "maxApi": 30,
+      "baselineProfiles": [
+        "baselineProfiles/1/NordicID_RFIDDemo_v2.4.1.dm"
+      ]
+    },
+    {
+      "minApi": 31,
+      "maxApi": 2147483647,
+      "baselineProfiles": [
+        "baselineProfiles/0/NordicID_RFIDDemo_v2.4.1.dm"
+      ]
+    }
+  ],
+  "minSdkVersionForDexing": 21
 }

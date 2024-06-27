@@ -82,8 +82,6 @@ public class Main extends AppTemplate {
 
     private boolean mDoNotDisconnectOnStop = false;
 
-    private static final int REQUEST_BLE_CODE = 2;
-
     public NurApiAutoConnectTransport getAutoConnectTransport()
     {
         return mAcTr;
@@ -1064,25 +1062,11 @@ public class Main extends AppTemplate {
 
 	void handleConnectionClick()
 	{
-        boolean isAllowed = false;
-        //BLE permissions for v11 and lower
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
-            if ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED) &&
-                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED))) {
-                isAllowed = true;
-            }
-        } else { //BLE permissions for v12 and higher
-            if ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) &&
-                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED)) &&
-                    ((ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED))) {
-                isAllowed = true;
-            }
-        }
-
-        if (isAllowed) {
+        String[] permissions = getAppTemplate().checkPermissions();
+        if (permissions != null)
+            getAppTemplate().requestPermissions(permissions);
+        else {
             NurDeviceListActivity.startDeviceRequest(this, mApi);
-        } else {
-            Toast.makeText(this, "Bluetooth permission denied.\nPlease make sure Bluetooth is enabled and permission is allowed.", Toast.LENGTH_LONG).show();
         }
 	}
 
@@ -1118,7 +1102,7 @@ public class Main extends AppTemplate {
             verStr += "; SmartPair " + NurSmartPairSupport.getVersion();
         }
         verStr +="; NurUpdateLib " + NurDeviceUpdate.getVersion();
-        verStr +="; NiduLib " + NiduLib.version();
+        verStr +="; NiduLib " + NiduLib.getVersion();
         nurApiVersion.setText(verStr);
 
         if (getNurApi().isConnected()) {

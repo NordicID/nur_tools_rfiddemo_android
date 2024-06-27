@@ -62,11 +62,11 @@ public class SettingsAppInventoryTab extends Fragment
     AccessoryExtension mExt;
 
     private Spinner mInvTypeSpinner;
+    private Spinner mTagDataTransSpinner;
     private Spinner mDataLen;
     private TextView mTxtDataLen;
     private Button mButtonBrowseFolder;
     private TextView mTxtPath;
-    private CheckBox mShowTDTPureUri;
     private CheckBox mAddGpsCoordinate;
 
     private RadioButton mRadioDown;
@@ -74,7 +74,7 @@ public class SettingsAppInventoryTab extends Fragment
 
     private int mDataLengthInt;
     private int mInvTypeInt;
-    private boolean mReadTDTPureUri;
+    private int mTagDataTransInt;
     private boolean mAddGpsCoord;
     private boolean mTriggerDown;
     private String mPath;
@@ -197,6 +197,9 @@ public class SettingsAppInventoryTab extends Fragment
 
     private void UpdateIRViews()
     {
+        mTagDataTransSpinner.setSelection(mTagDataTransInt);
+        Log.w("INV","Update TranslationMode=" + mTagDataTransInt);
+
         if(mInvTypeInt > 0) {
             mDataLen.setVisibility(View.VISIBLE);
             mInvTypeSpinner.setSelection(mInvTypeInt);
@@ -244,7 +247,7 @@ public class SettingsAppInventoryTab extends Fragment
 
         mDataLengthInt = settings.getInt("DataLength",2);
         mInvTypeInt = settings.getInt("InvType",0);
-        mReadTDTPureUri = settings.getBoolean("ReadPureUri",false);
+        mTagDataTransInt = settings.getInt("TagDataTrans",0);
         mAddGpsCoord = settings.getBoolean("AddGpsCoord",false);
 
         mTriggerDown = settings.getBoolean("TriggerDown",false);
@@ -261,8 +264,8 @@ public class SettingsAppInventoryTab extends Fragment
         super.onViewCreated(view, savedInstanceState);
 
         mInvTypeSpinner = (Spinner) view.findViewById(R.id.inv_mode_spinner);
+        mTagDataTransSpinner = (Spinner) view.findViewById(R.id.inv_read_spinner);
         mTxtDataLen = (TextView) view.findViewById(R.id.textDataLength);
-        mShowTDTPureUri = (CheckBox) view.findViewById(R.id.checkBoxShowPureUri);
         mButtonBrowseFolder = (Button)view.findViewById(R.id.buttonBrowseFolder);
         mTxtPath = (TextView) view.findViewById(R.id.textPath);
         mAddGpsCoordinate = (CheckBox) view.findViewById(R.id.checkBoxExportLocation);
@@ -296,16 +299,6 @@ public class SettingsAppInventoryTab extends Fragment
 
         final ArrayAdapter<String> spinnerArrayAdapterDataLen = new ArrayAdapter<String>(view.getContext(),android.R.layout.simple_spinner_item,dataLengthItems);
         mDataLen.setAdapter(spinnerArrayAdapterDataLen);
-
-        mShowTDTPureUri.setChecked(mReadTDTPureUri);
-
-        mShowTDTPureUri.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                settingEditor.putBoolean("ReadPureUri",isChecked);
-                settingEditor.apply();
-            }
-        });
 
         mAddGpsCoordinate.setChecked((mAddGpsCoord));
 
@@ -358,6 +351,19 @@ public class SettingsAppInventoryTab extends Fragment
 
                 mInvTypeInt = pos;
                 settingEditor.putInt("InvType",mInvTypeInt);
+                settingEditor.apply();
+
+                UpdateIRViews();
+            }
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+
+        mTagDataTransSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+
+                mTagDataTransInt = pos;
+                settingEditor.putInt("TagDataTrans",mTagDataTransInt);
                 settingEditor.apply();
 
                 UpdateIRViews();

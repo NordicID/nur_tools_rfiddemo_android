@@ -1,41 +1,40 @@
 package com.nordicid.rfiddemo;
 
-import android.app.AlertDialog;
+import static com.nordicid.apptemplate.AppTemplate.getAppTemplate;
+
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import androidx.fragment.app.Fragment;
 
-import android.text.Editable;
-import android.text.InputFilter;
 import android.text.InputType;
-import android.text.TextWatcher;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.nordicid.apptemplate.AppTemplate;
-import com.nordicid.nuraccessory.NurAccessoryConfig;
-import com.nordicid.nuraccessory.NurAccessoryExtension;
-import com.nordicid.nuraccessory.NurAccessoryVersionInfo;
 import com.nordicid.nurapi.ACC_WIRELESS_CHARGE_STATUS;
 import com.nordicid.nurapi.AccConfig;
 import com.nordicid.nurapi.AccVersionInfo;
 import com.nordicid.nurapi.AccessoryExtension;
 import com.nordicid.nurapi.NurApi;
 import com.nordicid.nurapi.NurApiAutoConnectTransport;
-import com.nordicid.nurapi.NurApiBLEAutoConnect;
 import com.nordicid.nurapi.NurApiListener;
 import com.nordicid.nurapi.NurEventAutotune;
 import com.nordicid.nurapi.NurEventClientInfo;
@@ -83,7 +82,17 @@ public class SettingsAppHidTab extends Fragment {
 
 	Button mButtonBond;
 	Button mButtonRebootDevice;
-	
+
+	EditText mHIDBarcodeEditText;
+	Button mHIDBarcodeDefaultButton;
+	Button mHIDBarcodeTagsButton;
+	Button mHIDBarcodeSetButton;
+
+	EditText mHIDRFIDEditText;
+	Button mHIDRFIDDefaultButton;
+	Button mHIDRFIDTagsButton;
+	Button mHIDRFIDSetButton;
+
 	private NurApiListener mThisClassListener = null;
 	
 	public NurApiListener getNurApiListener()
@@ -102,6 +111,7 @@ public class SettingsAppHidTab extends Fragment {
 				if (isAdded()) {
 					enableItems(true);
 					readCurrentSetup();
+					readHIDFormat();
 				}
 			}
 
@@ -151,6 +161,7 @@ public class SettingsAppHidTab extends Fragment {
 				enableItems(mApi.isConnected());
 				if (mApi.isConnected()) {
 					readCurrentSetup();
+					readHIDFormat();
 				}
 			}
 		}
@@ -219,6 +230,16 @@ public class SettingsAppHidTab extends Fragment {
 		mButtonRebootDevice.setEnabled(v);
 		mWirelessChargingCheckBox.setEnabled(v);
 		mAllowPairingCheckBox.setEnabled(v);
+
+		mHIDBarcodeEditText.setEnabled(v);
+		mHIDBarcodeDefaultButton.setEnabled(v);
+		mHIDBarcodeTagsButton.setEnabled(v);
+		mHIDBarcodeSetButton.setEnabled(v);
+
+		mHIDRFIDEditText.setEnabled(v);
+		mHIDRFIDDefaultButton.setEnabled(v);
+		mHIDRFIDTagsButton.setEnabled(v);
+		mHIDRFIDSetButton.setEnabled(v);
 	}
 
 	private String removeSpecificChars(String originalstring, String removecharacterstring)
@@ -268,6 +289,254 @@ public class SettingsAppHidTab extends Fragment {
 			mSpAutodisconExa51CheckBox.setOnCheckedChangeListener(null);
 			mSpSensitivityCheckBox.setOnCheckedChangeListener(null);
 		}
+	}
+
+	private void readHIDFormat() {
+		getAppTemplate().runOnUiThread(() -> {
+			if (!mHidBarcodeCheckBox.isChecked()) {
+				mHIDBarcodeEditText.setVisibility(View.GONE);
+				mHIDBarcodeDefaultButton.setVisibility(View.GONE);
+				mHIDBarcodeTagsButton.setVisibility(View.GONE);
+				mHIDBarcodeSetButton.setVisibility(View.GONE);
+				return;
+			}
+			String fmt = "";
+			try {
+				fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE);
+				if (fmt == null)
+					throw new Exception();
+			} catch (Exception e) {
+				mHIDBarcodeEditText.setVisibility(View.GONE);
+				mHIDBarcodeDefaultButton.setVisibility(View.GONE);
+				mHIDBarcodeTagsButton.setVisibility(View.GONE);
+				mHIDBarcodeSetButton.setVisibility(View.GONE);
+				return;
+			}
+			mHIDBarcodeEditText.setEnabled(true);
+			mHIDBarcodeEditText.setText(fmt);
+			mHIDBarcodeEditText.setVisibility(View.VISIBLE);
+			mHIDBarcodeDefaultButton.setVisibility(View.VISIBLE);
+			mHIDBarcodeTagsButton.setVisibility(View.VISIBLE);
+			mHIDBarcodeSetButton.setVisibility(View.VISIBLE);
+
+			mHIDBarcodeDefaultButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					try {
+						String set_fmt = "";
+						mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE, set_fmt);
+						String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE);
+						if (get_fmt == null)
+							throw new Exception();
+						Toast.makeText(AppTemplate.getAppTemplate(), "HID Barcode format: " + get_fmt, Toast.LENGTH_SHORT).show();
+						mHIDBarcodeEditText.setText(get_fmt);
+						mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+						mHIDBarcodeEditText.clearFocus();
+						InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+						imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+					} catch (Exception e) {
+						Toast.makeText(getContext(), "HID Barcode format invalid!", Toast.LENGTH_SHORT).show();
+						mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+					}
+				}
+			});
+
+			mHIDBarcodeTagsButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					PopupMenu popupMenu = new PopupMenu(getContext(), v);
+					Menu menu = popupMenu.getMenu();
+					String[] tags = getResources().getStringArray(R.array.hid_barcode_tags);
+					for (String tag : tags) {
+						menu.add(tag);
+					}
+
+					popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+						@Override
+						public boolean onMenuItemClick(MenuItem item) {
+							if (mHIDBarcodeEditText.hasFocus())
+								mHIDBarcodeEditText.getText().insert(mHIDBarcodeEditText.getSelectionStart(), item.getTitle());
+							else
+								mHIDBarcodeEditText.append(item.getTitle());
+							return true;
+						}
+					});
+					popupMenu.show();
+				}
+			});
+
+			mHIDBarcodeSetButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					try {
+						String set_fmt = mHIDBarcodeEditText.getText().toString();
+						mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE, set_fmt);
+						String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE);
+						if (get_fmt == null)
+							throw new Exception();
+						Toast.makeText(AppTemplate.getAppTemplate(), "HID Barcode format: " + get_fmt, Toast.LENGTH_SHORT).show();
+						mHIDBarcodeEditText.setText(get_fmt);
+						mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+						mHIDBarcodeEditText.clearFocus();
+						InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+						imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+					} catch (Exception e) {
+						Toast.makeText(getContext(), "HID Barcode format invalid!", Toast.LENGTH_SHORT).show();
+						mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+					}
+				}
+			});
+
+			mHIDBarcodeEditText.setOnKeyListener(new View.OnKeyListener() {
+				@Override
+				public boolean onKey(View v, int keyCode, KeyEvent event) {
+					if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
+						try {
+							String set_fmt = mHIDBarcodeEditText.getText().toString();
+							mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE, set_fmt);
+							String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_BARCODE);
+							if (get_fmt == null)
+								throw new Exception();
+							Toast.makeText(AppTemplate.getAppTemplate(), "HID Barcode format: " + get_fmt, Toast.LENGTH_SHORT).show();
+							mHIDBarcodeEditText.setText(get_fmt);
+							mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+							mHIDBarcodeEditText.clearFocus();
+							InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+							imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+						} catch (Exception e) {
+							Toast.makeText(getContext(), "HID Barcode format invalid!", Toast.LENGTH_SHORT).show();
+							mHIDBarcodeEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+						}
+					}
+					return false;
+				}
+			});
+		});
+
+		getAppTemplate().runOnUiThread(() -> {
+			if (!mHidRFIDCheckBox.isChecked()) {
+				mHIDRFIDEditText.setVisibility(View.GONE);
+				mHIDRFIDDefaultButton.setVisibility(View.GONE);
+				mHIDRFIDTagsButton.setVisibility(View.GONE);
+				mHIDRFIDSetButton.setVisibility(View.GONE);
+				return;
+			}
+
+			byte[] fmt_resp = {0};
+
+			String fmt = "";
+			try {
+				fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID);
+				if (fmt == null)
+					throw new Exception();
+			} catch (Exception e) {
+				mHIDRFIDEditText.setVisibility(View.GONE);
+				mHIDRFIDDefaultButton.setVisibility(View.GONE);
+				mHIDRFIDTagsButton.setVisibility(View.GONE);
+				mHIDRFIDSetButton.setVisibility(View.GONE);
+				return;
+			}
+			mHIDRFIDEditText.setEnabled(true);
+			mHIDRFIDEditText.setText(fmt);
+			mHIDRFIDEditText.setVisibility(View.VISIBLE);
+			mHIDRFIDDefaultButton.setVisibility(View.VISIBLE);
+			mHIDRFIDTagsButton.setVisibility(View.VISIBLE);
+			mHIDRFIDSetButton.setVisibility(View.VISIBLE);
+
+			mHIDRFIDDefaultButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					try {
+						String set_fmt = "";
+						mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID, set_fmt);
+						String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID);
+						if (get_fmt == null)
+							throw new Exception();
+						Toast.makeText(AppTemplate.getAppTemplate(), "HID RFID format: " + get_fmt, Toast.LENGTH_SHORT).show();
+						mHIDRFIDEditText.setText(get_fmt);
+						mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+						mHIDRFIDEditText.clearFocus();
+						InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+						imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+					} catch (Exception e) {
+						Toast.makeText(getContext(), "HID RFID format invalid!", Toast.LENGTH_SHORT).show();
+						mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+					}
+				}
+			});
+
+			mHIDRFIDTagsButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					PopupMenu popupMenu = new PopupMenu(getContext(), v);
+					Menu menu = popupMenu.getMenu();
+					String[] tags = getResources().getStringArray(R.array.hid_rfid_tags);
+					for (String tag : tags) {
+						menu.add(tag);
+					}
+
+					popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+						@Override
+						public boolean onMenuItemClick(MenuItem item) {
+							if (mHIDRFIDEditText.hasFocus())
+								mHIDRFIDEditText.getText().insert(mHIDRFIDEditText.getSelectionStart(), item.getTitle());
+							else
+								mHIDRFIDEditText.append(item.getTitle());
+							return true;
+						}
+					});
+					popupMenu.show();
+				}
+			});
+
+			mHIDRFIDSetButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					try {
+						String set_fmt = mHIDRFIDEditText.getText().toString();
+						mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID, set_fmt);
+						String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID);
+						if (get_fmt == null)
+							throw new Exception();
+						Toast.makeText(AppTemplate.getAppTemplate(), "HID RFID format: " + get_fmt, Toast.LENGTH_SHORT).show();
+						mHIDRFIDEditText.setText(get_fmt);
+						mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+						mHIDRFIDEditText.clearFocus();
+						InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+						imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+					} catch (Exception e) {
+						Toast.makeText(getContext(), "HID RFID format invalid!", Toast.LENGTH_SHORT).show();
+						mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+					}
+				}
+			});
+
+			mHIDRFIDEditText.setOnKeyListener(new View.OnKeyListener() {
+				@Override
+				public boolean onKey(View v, int keyCode, KeyEvent event) {
+					if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
+						try {
+							String set_fmt = mHIDRFIDEditText.getText().toString();
+							mExt.setHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID, set_fmt);
+							String get_fmt = mExt.getHIDFormat(AccessoryExtension.HID_FORMAT_PARAM_RFID);
+							if (get_fmt == null)
+								throw new Exception();
+							Toast.makeText(AppTemplate.getAppTemplate(), "HID RFID format: " + get_fmt, Toast.LENGTH_SHORT).show();
+							mHIDRFIDEditText.setText(get_fmt);
+							mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+							mHIDRFIDEditText.clearFocus();
+							InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Activity.INPUT_METHOD_SERVICE);
+							imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+						} catch (Exception e) {
+							Toast.makeText(getContext(), "HID RFID format invalid!", Toast.LENGTH_SHORT).show();
+							mHIDRFIDEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_dark));
+						}
+						mHIDRFIDEditText.clearFocus();
+					}
+					return false;
+				}
+			});
+		});
 	}
 
 	private void readCurrentSetup() {
@@ -386,6 +655,7 @@ public class SettingsAppHidTab extends Fragment {
 
 			mExt.setConfig(cfg);
 			readCurrentSetup();
+			readHIDFormat();
 		} catch (Exception e) {
 			e.printStackTrace();
 			Toast.makeText(AppTemplate.getAppTemplate(),"Operation failed", Toast.LENGTH_SHORT).show();
@@ -399,6 +669,7 @@ public class SettingsAppHidTab extends Fragment {
 			cfg.setAllowPairingState(mAllowPairingCheckBox.isChecked());
 			mExt.setConfig(cfg);
 			readCurrentSetup();
+			readHIDFormat();
 
 			if(cfg.getAllowPairingState()==false && mBondFound) {
 				//device paired and now user want to disable pairing.
@@ -549,6 +820,26 @@ public class SettingsAppHidTab extends Fragment {
         mSpAutodisconExa51CheckBox = (CheckBox) view.findViewById(R.id.sp_autodiscon_exa51);
         mSpSensitivityCheckBox = (CheckBox) view.findViewById(R.id.sp_sensitivity);
 
+		mHIDBarcodeEditText = (EditText)view.findViewById(R.id.hid_barcode_format);
+		mHIDBarcodeEditText.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+		mHIDBarcodeEditText.setVisibility(View.GONE);
+		mHIDBarcodeDefaultButton = (Button)view.findViewById(R.id.hid_barcode_format_default);
+		mHIDBarcodeDefaultButton.setVisibility(View.GONE);
+		mHIDBarcodeTagsButton = (Button)view.findViewById(R.id.hid_barcode_tags);
+		mHIDBarcodeTagsButton.setVisibility(View.GONE);
+		mHIDBarcodeSetButton = (Button)view.findViewById(R.id.hid_barcode_format_set);
+		mHIDBarcodeSetButton.setVisibility(View.GONE);
+
+		mHIDRFIDEditText = (EditText)view.findViewById(R.id.hid_rfid_format);
+		mHIDRFIDEditText.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+		mHIDRFIDEditText.setVisibility(View.GONE);
+		mHIDRFIDDefaultButton = (Button)view.findViewById(R.id.hid_rfid_format_default);
+		mHIDRFIDDefaultButton.setVisibility(View.GONE);
+		mHIDRFIDTagsButton = (Button)view.findViewById(R.id.hid_rfid_tags);
+		mHIDRFIDTagsButton.setVisibility(View.GONE);
+		mHIDRFIDSetButton = (Button)view.findViewById(R.id.hid_rfid_format_set);
+		mHIDRFIDSetButton.setVisibility(View.GONE);
+
         if (!NurSmartPairSupport.isSupported())
             mSpLayout.setVisibility(View.GONE);
 
@@ -620,5 +911,6 @@ public class SettingsAppHidTab extends Fragment {
 		Log.i(TAG,"Resume");
 		iterateBluetoothDevices();
 		readCurrentSetup();
+		readHIDFormat();
 	}
 }

@@ -52,24 +52,113 @@
 	            android:layout_height="wrap_content"
 	            android:text="HID barcode support" />
 
-	        <CheckBox
-	            android:id="@+id/hid_barcode_checkbox"
-	            android:layout_width="match_parent"
-	            android:layout_height="wrap_content"
-	            android:text="Enable HID barcode" />
-	        	    
-	        <TextView
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="horizontal">
+
+			<CheckBox
+				android:id="@+id/hid_barcode_checkbox"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:text="Enable HID barcode" />
+
+			<Button
+				android:id="@+id/hid_barcode_format_default"
+				android:layout_width="90dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Default" />
+
+			<Button
+				android:id="@+id/hid_barcode_tags"
+				android:layout_width="60dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Tags" />
+
+			<Button
+				android:id="@+id/hid_barcode_format_set"
+				android:layout_width="60dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Set" />
+
+		</LinearLayout>
+
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="horizontal">
+
+			<EditText
+				android:id="@+id/hid_barcode_format"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:inputType="text"
+				android:saveEnabled="false"
+				android:text="HID Barcode format" />
+
+		</LinearLayout>
+
+		<TextView
 	            android:layout_width="wrap_content"
 	            android:layout_height="wrap_content"
 	            android:text="HID RFID support" />
 
-	        <CheckBox
-	            android:id="@+id/hid_rfid_checkbox"
-	            android:layout_width="match_parent"
-	            android:layout_height="wrap_content"
-	            android:text="Enable HID RFID" />
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="horizontal">
 
-			<TextView
+			<CheckBox
+				android:id="@+id/hid_rfid_checkbox"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:text="Enable HID RFID" />
+
+			<Button
+				android:id="@+id/hid_rfid_format_default"
+				android:layout_width="90dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Default" />
+
+			<Button
+				android:id="@+id/hid_rfid_tags"
+				android:layout_width="60dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Tags" />
+
+			<Button
+				android:id="@+id/hid_rfid_format_set"
+				android:layout_width="60dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="0"
+				android:text="Set" />
+		</LinearLayout>
+
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="horizontal">
+
+			<EditText
+				android:id="@+id/hid_rfid_format"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:inputType="text"
+				android:saveEnabled="false"
+				android:text="HID RFID format" />
+
+		</LinearLayout>
+
+		<TextView
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
 				android:id="@+id/hid_wireless_charging_label"

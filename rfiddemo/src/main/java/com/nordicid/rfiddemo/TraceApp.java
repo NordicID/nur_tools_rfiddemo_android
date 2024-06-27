@@ -1,5 +1,6 @@
 package com.nordicid.rfiddemo;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
 import com.nordicid.apptemplate.SubApp;
@@ -13,12 +14,14 @@ import com.nordicid.nurapi.NurEventIOChange;
 
 import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -33,6 +36,7 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.SimpleAdapter;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -50,10 +54,12 @@ public class TraceApp extends SubApp {
 	private ProgressBar mProgressBar;
 	private ListView mFoundTagsListView;
 	private RelativeLayout mEmptyListViewNotice;
-
 	private TraceTagController mTraceController;
 	private InventoryController mInventoryController;
-
+	public Spinner mLocateTagDataTransSpinner;
+	private int mLocateTagDataTrans;
+	SharedPreferences settings = null;
+	SharedPreferences.Editor settingEditor = null;
 	ObjectAnimator mAnimator = null;
 	int mLastVal = 0;
 
@@ -108,22 +114,52 @@ public class TraceApp extends SubApp {
 			}
 		});
 	}
-	
+
+	private void UpdateIRViews()
+	{
+		// If Settings TDT format GS1 is enabled
+		if (mInventoryController.mTagDataTrans == 1) {
+			//Log.d("LOC", "isGS1");
+			mLocateTagDataTransSpinner.setEnabled(false);
+			mLocateTagDataTrans = 0;
+			mLocateTagDataTransSpinner.setSelection(0);
+		}
+		else {
+			mLocateTagDataTransSpinner.setEnabled(true);
+		}
+
+		if (mFoundTagsListViewAdapter != null) {
+			try {
+				if (!mInventoryController.doSingleInventory(true)) {
+					Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
+				}
+				else if (mInventoryController.getTagStorage().size() == 0) {
+					Toast.makeText(getActivity(), "No tags found", Toast.LENGTH_SHORT).show();
+				}
+
+			} catch (Exception e) {
+				Toast.makeText(getActivity(), getString(R.string.reader_error), Toast.LENGTH_SHORT).show();
+			}
+			mFoundTagsListViewAdapter.notifyDataSetChanged();
+
+		}
+	}
+
 	@Override
 	public int getTileIcon() {
 		return R.drawable.ic_locate;
 	}
-	
+
 	@Override
 	public String getAppName() {
 		return "Locate";
 	}
-	
+
 	@Override
 	public int getLayout() {
 		return R.layout.app_locate;
 	}
-	
+
 	@Override
 	public void onVisibility(boolean val)
 	{
@@ -132,7 +168,7 @@ public class TraceApp extends SubApp {
 			stopTrace();
 		}
 	}
-	
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -141,6 +177,12 @@ public class TraceApp extends SubApp {
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		super.onViewCreated(view, savedInstanceState);
+		mLocateTagDataTransSpinner = (Spinner) view.findViewById(R.id.locate_read_spinner);
+		settings = Main.getApplicationPrefences();
+		settingEditor = settings.edit();
+
+		mInventoryController.mTagDataTrans = settings.getInt("TagDataTrans",0);
+		UpdateIRViews();
 
 		mStartStopLocating = addButtonBarButton(getString(R.string.start), new OnClickListener() {
 
@@ -158,6 +200,7 @@ public class TraceApp extends SubApp {
 			@Override
 			public void onClick(View v) {
 				try {
+					mInventoryController.LoadInventorySettings();
 					if (!mInventoryController.doSingleInventory(true)) {
 						Toast.makeText(getActivity(), getString(R.string.reader_connection_error), Toast.LENGTH_SHORT).show();
 					}
@@ -203,12 +246,25 @@ public class TraceApp extends SubApp {
 			mProgressBar.setLayoutParams(lp);
 			mPctText.setLayoutParams(lp);
 		}
-		
-		mFoundTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
+
+		mLocateTagDataTransSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+
+				mLocateTagDataTrans = pos;
+				settingEditor.putInt("LocateTagDataTrans",mLocateTagDataTrans);
+				settingEditor.apply();
+
+				UpdateIRViews();
+			}
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+
+		mFoundTagsListViewAdapter = new SimpleAdapter(getActivity(), mInventoryController.getListViewAdapterData(), R.layout.taglist_row, new String[] {"epc_translated","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 		mFoundTagsListView.setEmptyView(mEmptyListViewNotice);
 		mFoundTagsListView.setAdapter(mFoundTagsListViewAdapter);
 		mFoundTagsListView.setCacheColorHint(0);
-		
+
 		mFoundTagsListView.setOnItemClickListener(new OnItemClickListener() {
 
 			@Override
@@ -216,7 +272,14 @@ public class TraceApp extends SubApp {
 					int position, long id) {
 				@SuppressWarnings("unchecked")
 				HashMap<String,String> selectedTagData = (HashMap<String, String>) mFoundTagsListView.getItemAtPosition(position);
-				String epc = selectedTagData.get("epc");
+
+				String epc;
+				if (mLocateTagDataTrans == 1) {
+					epc = selectedTagData.get("epc_translated");
+				}
+				else {
+					epc = selectedTagData.get("epc");
+				}
 
 				mLocatableEpcEditText.setText(epc);
 				mLocatableEpc = epc;
@@ -224,7 +287,7 @@ public class TraceApp extends SubApp {
 				if (mTraceController.isTracingTag()) {
 					mTraceController.setTagTrace(mLocatableEpc);
 				}
-			}			
+			}
 		});
 
 		mLocatableEpcEditText.addTextChangedListener(new TextWatcher() {
@@ -235,30 +298,64 @@ public class TraceApp extends SubApp {
 
 			@Override
 			public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+				// If Locate TDT is ASCII
+				if (mLocateTagDataTrans == 1) {
+					String epcText = mLocatableEpcEditText.getText().toString();
+					byte[] epcBytes = epcText.getBytes(StandardCharsets.UTF_8);
+					boolean isAsciiValid = TraceTagController.isValidAscii(epcBytes);
 
+					if (isAsciiValid) {
+						mLocatableEpcEditText.setBackgroundColor(Color.rgb(230, 230, 230));
+					} else {
+						Log.d("ASCII", "Is not ASCII-valid: " + epcText);
+					}
+				} else {
+					mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+					mLocatableEpc = "";
+				}
 			}
 
 			@Override
 			public void afterTextChanged(Editable editable) {
-				String tmp = mLocatableEpcEditText.getText().toString().replaceAll("[^a-fA-F_0-9]", "");
+				// If Locate TDT is ASCII
+				if (mLocateTagDataTrans == 1) {
+					mLocatableEpcEditText.setBackgroundColor(Color.rgb(230, 230, 230));
 
-				if (!tmp.equals(mLocatableEpcEditText.getText().toString())) {
-					mLocatableEpcEditText.setText(tmp);
-					mLocatableEpcEditText.setSelection(mLocatableEpcEditText.getText().length());
-				}
+					String epcText = mLocatableEpcEditText.getText().toString();
+					byte[] epcBytes = epcText.getBytes(StandardCharsets.UTF_8);
 
-				if(mLocatableEpcEditText.getText().toString().length() == 0 ) {
-					mLocatableEpcEditText.setBackgroundColor(Color.rgb(230,230,230));
-					return;
-				}
-
-				if ((mLocatableEpcEditText.getText().toString().length() % 4) != 0) {
-					mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
-					mLocatableEpc="";
+					if (TraceTagController.isValidAscii(epcBytes)) {
+						mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+						mLocatableEpc = mTraceController.asciiToHex(epcText);
+						return;
+					}
+					else {
+						mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+						return;
+					}
 				}
 				else {
-					mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
-					mLocatableEpc = mLocatableEpcEditText.getText().toString();
+
+					String tmp = mLocatableEpcEditText.getText().toString().replaceAll("[^a-fA-F_0-9]", "");
+
+					if (!tmp.equals(mLocatableEpcEditText.getText().toString())) {
+						mLocatableEpcEditText.setText(tmp);
+						mLocatableEpcEditText.setSelection(mLocatableEpcEditText.getText().length());
+					}
+
+					if(mLocatableEpcEditText.getText().toString().length() == 0 ) {
+						mLocatableEpcEditText.setBackgroundColor(Color.rgb(230,230,230));
+						return;
+						}
+
+						if ((mLocatableEpcEditText.getText().toString().length() % 4) != 0) {
+							mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+							mLocatableEpc="";
+						}
+						else {
+							mLocatableEpcEditText.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+							mLocatableEpc = mLocatableEpcEditText.getText().toString();
+						}
 				}
 			}
 		});
@@ -295,6 +392,10 @@ public class TraceApp extends SubApp {
 		try {
 			if (!mTraceController.isTracingTag())
 			{
+				if (mLocateTagDataTrans == 1) {
+					String epcText = mLocatableEpcEditText.getText().toString();
+					mLocatableEpc = mTraceController.asciiToHex(epcText);
+				}
 				if (mLocatableEpc == null)
 					Toast.makeText(getActivity(), getString(R.string.locatable_epc_hint), Toast.LENGTH_SHORT).show();
 				else if (!getNurApi().isConnected())

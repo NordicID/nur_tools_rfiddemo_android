@@ -1,3 +1,9 @@
+v2.3.1
+- EXA-21 firwmare update
+
+v2.3.2
+- Nearby devices permission fix
+
 v2.2.0
 - DFU support for EXA-81
 

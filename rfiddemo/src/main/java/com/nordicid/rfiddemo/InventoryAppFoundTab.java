@@ -40,7 +40,7 @@ public class InventoryAppFoundTab extends Fragment {
 		mFoundTagsListViewAdapter = new SimpleAdapter(
 				getActivity(),
 				mIC.getListViewAdapterData(),
-				R.layout.taglist_row, new String[] {"epc","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
+				R.layout.taglist_row, new String[] {"epc_translated","rssi"}, new int[] {R.id.tagText,R.id.rssiText});
 
 
 		mInventoryTagList.setEmptyView(view.findViewById(R.id.no_tags));

@@ -49,16 +49,17 @@
     </RelativeLayout>
 
     <TextView
-        android:id="@+id/locate_epc_hdr"
+        android:id="@+id/textTagDataTransSettings"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="5dp"
-        android:layout_marginRight="5dp"
-        android:background="@drawable/orange_border_bottom_whitefill"
-        android:gravity="center"
-        android:text="Locate Tag:"
-        android:paddingBottom="5dp"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
+        android:text="Select locate format"
+        android:textSize="18sp" />
+
+    <Spinner
+        android:id="@+id/locate_read_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:entries="@array/locate_tag_data_trans_entries" />
 
     <EditText
         android:id="@+id/locate_epc_edittext"

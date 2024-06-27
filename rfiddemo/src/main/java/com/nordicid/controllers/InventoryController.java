@@ -139,10 +139,11 @@ public class InventoryController {
 	//Inventory settings
 	private int mDataWords;
 	public int mInvType; //0=epc 1=epc+tid 2=epc+user
-	public boolean mReadTDTPureUri;
+	public int mTagDataTrans; // 0=HEX 1=GS1 Uri 2=Ascii
 	private boolean mAddGpsCoord;
 	private String mPath;
 	public boolean mTriggerDown;
+	private TraceApp mTraceApp;
 
 	private ArrayList<HashMap<String, String>> mListViewAdapterData = new ArrayList<HashMap<String,String>>();
 
@@ -248,26 +249,70 @@ public class InventoryController {
 			for (int i = 0; i < tagStorage.size(); i++) {
 
 				NurTag tag = tagStorage.get(i);
+				Log.w("INV","ReadingType=" + mTagDataTrans);
+
+				String hex = tag.getEpcString();
+				String transVal = null;
 
 				if (mTagStorage.addTag(tag))
 				{
 					tmp = new HashMap<String, String>();
 					// Add new
-					if(mReadTDTPureUri) {
+					if (mTagDataTrans == 1) {
 						try {
 							//Check if tag is GS1 coded. Exception fired if not and plain EPC shown.
 							//This is TDT (TagDataTranslation) library feature.
-							EPCTagEngine engine = new EPCTagEngine(tag.getEpcString());
+							EPCTagEngine engine = new EPCTagEngine(hex);
 							//Looks like it is GS1 coded.
-							//tmp.put("epc", engine.buildPureIdentityURI());
-							tmp.put("epc", engine.buildTagURI());
-						} catch (Exception ex) {
-							//Not GS1 coded. Show only EPC hex string.
-							tmp.put("epc", tag.getEpcString());
+							transVal = engine.buildTagURI();
+							tmp.put("epc_translated", transVal);
+							tmp.put("epc", hex);
+						}
+						catch (Exception ex) {
+							tmp.put("epc_translated", hex);
+							tmp.put("epc", hex);
 						}
 					}
-					else
-						tmp.put("epc", tag.getEpcString());
+					else if (mTagDataTrans == 2) {
+						try {
+							// Check if tag in ASCII coded.
+							byte[] epc = tag.getEpc();
+							boolean nullReached = false;
+							boolean validTDT = true;
+
+							for (int j = 0; j < epc.length; j++) {
+								if (epc[j] == 0) {
+									nullReached = true;
+									continue;
+								}
+								if (epc[j] < 0x20 || epc[j] > 0x7F) {
+									validTDT = false;
+									break;
+								}
+								if (nullReached) {
+									validTDT = false;
+									break;
+								}
+							}
+
+							if (validTDT) {
+								transVal = new String(tag.getEpc());
+								tmp.put("epc_translated", transVal);
+							}
+							else {
+								tmp.put("epc_translated", hex);
+							}
+						}
+						catch (Exception ex) {
+						Log.i("Error reading ascii: ", ex.toString());
+						}
+						tmp.put("epc", hex);
+					}
+
+					else {
+						tmp.put("epc_translated", hex);
+						tmp.put("epc", hex);
+					}
 
 					tmp.put("rssi", Integer.toString(tag.getRssi()));
 					tmp.put("maxrssi", Integer.toString(tag.getRssi()));
@@ -378,7 +423,7 @@ public class InventoryController {
 
 		mDataWords = settings.getInt("DataLength",2);
 		mInvType = settings.getInt("InvType",0);
-		mReadTDTPureUri = settings.getBoolean("ReadPureUri",false);
+		mTagDataTrans = settings.getInt("TagDataTrans",0);
         mAddGpsCoord = settings.getBoolean("AddGpsCoord",false);
 		//mPath = settings.getString("FilePath","content://com.android.externalstorage.documents/tree/primary%3ADownload");
 		mPath = settings.getString("FilePath",Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
@@ -480,7 +525,7 @@ public class InventoryController {
 
 		return true;
 	}
-	
+
 	public boolean isInventoryRunning() {
 		return mInventoryRunning;
 	}
@@ -568,7 +613,7 @@ public class InventoryController {
 				{
 					fileWriter.append(tag.get("firstseentime") + ";");
 					fileWriter.append(tag.get("lastseentime") + ";");
-					fileWriter.append(tag.get("epc") + ";");
+					fileWriter.append(tag.get("epc_translated") + ";");
 
 					if(mInvType > 0) {
 						int iType=Integer.parseInt(tag.get("invtype"));
@@ -780,7 +825,13 @@ public class InventoryController {
 			public void onClick(View v) {
 				dialog.dismiss();
 
-				TraceApp.setStartParams(tagData.get("epc"), true);
+				// Set TDT format to ASCII if selcted in settings
+				if (mTagDataTrans == 2) {
+					TraceApp.setStartParams(tagData.get("epc_translated"), true);
+				}
+				else {
+					TraceApp.setStartParams(tagData.get("epc"), true);
+				}
 				AppTemplate.getAppTemplate().setApp("Locate");
 			}
 		});

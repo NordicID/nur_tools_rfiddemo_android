@@ -63,7 +63,7 @@ public class AuthenticationAppFoundTab extends Fragment {
 				getActivity(),
 				mTagSourceHash,
 				R.layout.taglist_row, 
-				new String[] {"epc"}, 
+				new String[] {"epc_translated"},
 				new int[] {R.id.tagText});
 
 

@@ -270,7 +270,7 @@ public class InventoryApp extends SubApp {
 											getActivity(), 
 											mInventoryController.getListViewAdapterData(),
 											R.layout.taglist_row,
-											new String[] { "epc","rssi" },
+											new String[] { "epc_translated","rssi" },
 											new int[] { R.id.tagText, R.id.rssiText });
 		
 		//empty view when no tags in list
